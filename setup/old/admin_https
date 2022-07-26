@@ -1,0 +1,18 @@
+#!/bin/sh
+#alias renix='nginx -t  && nginx -s reload'
+
+if RET=$(curl --silent https://$(hostname -f) >/dev/null); then
+#sed -i 's/#include/include/g;0,/include/ s/include/#include/' /etc/nginx/conf.d/grommunio-admin.conf
+sed -i 's/#include/include/g' /etc/nginx/conf.d/grommunio-admin.conf
+ln -s /etc/grommunio-common/nginx/ssl_certficate.conf /etc/grommunio-admin-common/nginx-ssl.conf
+nginx -t && nginx -s reload
+fi
+
+
+#STATUS-MONITOR
+#sed -i "s|http://localhost:8080|https://"$(hostname -f)":8443|g" /usr/share/grommunio-admin-api/config.yaml
+#sed -i -n "p; s/127.0.0.1/"$(hostname -i)"/p" /usr/share/grommunio-admin-common/nginx-ssl.conf 
+#Python on OpenSuse doesn't play nice with LetEncrypt ISRG Root X1... 
+#sed -i "s|conf\[host\], stream=True)|conf\[host\], stream=True, verify=False)|g" /usr/share/grommunio-admin-api/endpoints/system/misc.py
+systemctl restart grommunio-admin-api.service
+
