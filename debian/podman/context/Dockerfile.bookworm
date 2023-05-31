@@ -1,0 +1,65 @@
+# original file from eryx - github.com/eryx12o45
+
+# Get the base Debian image from Docker Hub
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND noninteractive
+
+# Add deb-src repositories
+RUN sed -i '/^deb/{p;s/^deb/deb-src/g;}' /etc/apt/sources.list
+
+# Update apps on the base image
+RUN apt-get update --yes --quiet && \
+    apt-get dist-upgrade --yes --quiet && \
+    apt-get install git wget vim-tiny --yes --quiet
+
+
+RUN apt-get build-dep libhx32 libhx-dev --yes --quiet
+
+# Install packages
+#RUN apt-get install --yes --quiet --no-install-recommends \
+#    libcurlpp-dev libgumbo-dev libjsoncpp-dev libvmime-dev libzstd-dev \
+#    libmariadb-dev libldap2-dev libssl-dev build-essential perl sqlite3 \
+#    libsqlite3-dev libtinyxml2-dev zlib1g-dev dh-autoreconf wget unzip \
+#    cmake php-dev vim-tiny git libfmt-dev libhx-dev libxml2-dev \
+
+# Install libhx >= 4
+WORKDIR /usr/src
+RUN wget --no-check-certificate \
+  https://codeberg.org/jengelh/libhx/archive/v4.12.tar.gz -O libHX-4.12.tar.gz \
+    && tar xzf libHX-4.12.tar.gz \
+    && cd libhx \
+    && ./qconf \
+    && make \
+    && make install
+#    && make install \
+#    && cp -a include/libHX /usr/include \
+#    && cp include/libHX.h /usr/include/
+
+#  # Install libfmt >= 8
+#  WORKDIR /usr/src
+#  RUN wget https://github.com/fmtlib/fmt/releases/download/8.1.1/fmt-8.1.1.zip \
+#      && unzip fmt-8.1.1.zip \
+#      && cd fmt-8.1.1 \
+#      && cmake -DBUILD_SHARED_LIBS=TRUE \
+#      && make \
+#      && make install
+#  #    && make install \
+#  #    && cp -a include/fmt /usr/include
+
+# make sure ld config has run
+RUN ldconfig
+
+# Copy the current folder to /usr/src
+COPY ./gromox/ /usr/src/build
+
+# Specify the working directory
+WORKDIR /usr/src/build
+
+# Build gromox
+RUN ./qconf \
+    && make \
+    && make install
+
+WORKDIR /
+#CMD ["/bin/bash"]

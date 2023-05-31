@@ -1,0 +1,14 @@
+alias l='ls -lah'
+alias la='ls -lAh'
+alias ll='ls -lh'
+alias ls='ls --color=tty'
+alias lsa='ls -lah'
+alias renix='nginx -t && nginx -s reload'
+alias grep='grep -iE --color'
+alias snapconfs='snapper list-configs --columns config |tail -n +3'
+alias zypup='zypp-refresh ; zypper --verbose up && zypper ps --print "systemctl status %s"'
+alias qdu="find -mindepth 1 -maxdepth 1 -path ./sys -prune -o -path ./proc -prune -o -print0 | xargs -0 du -hsx | sort -h"
+alias systemctl="systemctl --no-pager"
+alias bat='bat -p' #BAT CAT!
+alias gromtail='find /var/log/grom* /var/log/nginx/ -type f -iname '*log' -exec tail -f {} +'
+alias _grom_clear_index='rm -Rf /var/lib/grommunio-web/sqlite-index/*;  /usr/sbin/grommunio-index-run.sh'

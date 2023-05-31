@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+#set -x
+SNAPCONF="gromox"
+#OPTS
+BDIR="$(awk '/grom.*nfs/ {print $2}' /etc/fstab)"
+#BDIR="/mnt/zpool/dataset/dataset"
+#SIMPLE OR-PATTERN ON ETC-FOLDERS - separate with "\|"
+ETCFLDS="grom\|postfix"
+RSYNCOPTS="-rau --partial --delete-after"
+MYSQLDUMPOPTS="--single-transaction --routines --triggers --events --add-drop-database"
+#Check if dir exists or exit
+if [ ${#BDIR} -gt 0 ]; then
+  if grep -qs "${BDIR}" /proc/mounts; then
+    #echo "NFS-Mount available."
+    true
+  else
+    echo "Target not mounted."
+#    mount "${BDIR}"
+    if mount "${BDIR}"; then
+      echo "Mount success!"
+    else
+      echo "Something went wrong with the mount..."
+      exit 1
+    fi
+  fi
+else
+  echo "Backup-Target not Mounted"
+  exit 1
+fi
+
+#get mysql-info's and `eval` so they will be available as var
+MYSQLCONF="/etc/gromox/mysql_adaptor.cfg"
+eval "$(sed 's/ //g' "${MYSQLCONF}")" || echo "[ERROR] ${COMMAND}"
+
+#Gromox-Mount-Path
+GROMOXPATH="$(snapper --csvout -c ${SNAPCONF} get-config |sed -n 's/SUBVOLUME,//p')"
+#retrieve the latest snapshotpath
+#we will copy all from .snapshots/$ID/ to include the info.xml from snapper
+snapper -c ${SNAPCONF} create
+SNAPNUM=$(snapper --csvout -c ${SNAPCONF} list |tail -n1|cut -d, -f3)
+SNAPPATH="${GROMOXPATH}/.snapshots/${SNAPNUM}"
+
+#CREATE BACKUPDIRS
+mkdir -p ${BDIR}/{confs,mysql,{fs/"${SNAPCONF}",}} || echo "[ERROR] could not create Directories in ${BDIR}"
+
+#CONFIGS
+echo "Creating tgz of etc-configs"
+cd /
+find etc/ -maxdepth 1 -iregex ".*\(${ETCFLDS}\).*" -exec tar -cJf "${BDIR}/confs/etc.tar.xz" {} +  || echo "[ERROR] config-files"
+ls -l "${BDIR}/confs/etc.tar.xz"
+#MYSQLDUMP
+# shellcheck disable=SC2154
+echo "Creating mysqldump"
+COMMAND="mysqldump --user=${mysql_username} --password=${mysql_password} --databases ${mysql_dbname} ${MYSQLDUMPOPTS}"
+$COMMAND > "${BDIR}/mysql/${mysql_dbname}.sql" || (echo "[ERROR] ${COMMAND//word=*--data/word= --data}")
+ls -l "${BDIR}/mysql/${mysql_dbname}.sql" 
+
+#FSCOPY
+echo "Starting Rsync of ${SNAPPATH}"
+COMMAND="rsync ${RSYNCOPTS} ${SNAPPATH}/ ${BDIR}/fs/${SNAPCONF}"
+time $COMMAND || echo "[ERROR] ${COMMAND}"
+
+snapper -c ${SNAPCONF} delete ${SNAPNUM}
