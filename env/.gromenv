@@ -173,7 +173,7 @@ grommunio_sync_rediscache() {
 
 # Grommunio-Users
 # List Domains
-grom_doms() { grommunio-admin domain list |awk '{print $2}' ; }
+grom_doms() { grommunio-admin domain query domainname | sed '/domainname/d' ; }
 # List User
 
 grom_users() {
