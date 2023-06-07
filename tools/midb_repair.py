@@ -1,4 +1,4 @@
-#!/usr/bin/python3.9
+#!/usr/bin/python3
 #
 # SPDX-FileCopyrightText: 2023 Christopher Bock <christopher@bocki.com>
 # SPDX-FileCopyrightText: 2023 Walter Hofstaedtler <walter@hofstaedtler.com>
@@ -19,7 +19,6 @@ import json
 import pprint
 
 # jwilk/python-syntax-errors
-# type(0_0) # Python >= 3.6
 lambda x, /: 0  # Python >= 3.8 is required
 
 pp = pprint.PrettyPrinter()
