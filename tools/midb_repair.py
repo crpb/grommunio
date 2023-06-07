@@ -12,14 +12,22 @@ import os
 import sys
 import socket
 import time
-import telnetlib
 import subprocess
 import argparse
 import json
 import pprint
+import warnings
 
-# jwilk/python-syntax-errors
-lambda x, /: 0  # Python >= 3.8 is required
+# we still have a little time left until python3.13!
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore",category=DeprecationWarning)
+    import telnetlib
+
+#  # jwilk/python-syntax-errors
+#  lambda x, /: 0  # Python >= 3.8 is required
+if not sys.version_info >= (3, 8):
+    print('Required version Python 3.8')
+    sys.exit()
 
 pp = pprint.PrettyPrinter()
 
@@ -40,7 +48,7 @@ pargs = parser.parse_args()
 if pargs.verbose: pp.pprint(pargs)
 
 def trigger(users):
-    if args.verbose: print('Running Trigger')
+    if pargs.verbose: print('Running Trigger')
     telnet_client = telnetlib.Telnet('::1', 5555)
     wcount = 0
     mcount = len(users)
@@ -139,7 +147,7 @@ if pargs.user:
                 '--format',
                 'json-structured',
                 '--filter',
-                f'username={args.user}'
+                f'username={pargs.user}'
                 ],
             universal_newlines=True)
 
