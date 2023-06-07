@@ -78,7 +78,7 @@ def backup_midb(users):
             subprocess.call(command, shell=True)
 
 def recreate_midb(users):
-    if pargs.verbose: print(f'recreate midbs: {pargs.dry_run}')
+    if pargs.verbose: print(f'recreate midbs')
     args = ['systemctl',
             'stop',
             'gromox-midb',
