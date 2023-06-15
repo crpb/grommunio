@@ -13,7 +13,7 @@ _grom_versions() {
   if test -f /etc/debian_version; then
     dpkg-query -Wf '${Package;-40}${Version;-30};${Maintainer}\n' |awk -F\; '/(grommunio|gromox)/ {print $1}'
   else
-    rpm -q -a --qf "%-40{Name}%-15{Release}%{Version}:%{Vendor}\n" | sort | awk -F: '/grommunio/ {print $1}' 
+    rpm -q -a --qf "%-40{Name}%-15{Release}%{Version};%{Vendor}\n" | sort | awk -F\; '/grommunio/ {print $1}' 
   fi
 }
 #
