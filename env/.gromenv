@@ -11,9 +11,9 @@ alias grom_du='grommunio-admin user query username maildir |sed '1,2d' | while r
 # Get Grommunio-Package-Versions
 _grom_versions() {
   if test -f /etc/debian_version; then
-    dpkg-query -W --showformat='${Package};${Version};${Maintainer}\n' |awk -F\; '/(gromox|grommunio).com/ {print $1"\t"$2}' |expand -t 60
+    dpkg-query -Wf '${Package;-40}${Version;-30};${Maintainer}\n' |awk -F\; '/(grommunio|gromox)/ {print $1}'
   else
-    rpm -q -a --qf "%{Name}:%{Version}-%{Release}:%{Vendor}\n" |sort |awk -F: '/grommunio GmbH/ {print $1"\t"$2}' |expand -t 60
+    rpm -q -a --qf "%-40{Name}%-15{Release}%{Version}:%{Vendor}\n" | sort | awk -F: '/grommunio/ {print $1}' 
   fi
 }
 #
@@ -173,7 +173,8 @@ grommunio_sync_rediscache() {
 
 # Grommunio-Users
 # List Domains
-grom_doms() { grommunio-admin domain query domainname | sed '/domainname/d' ; }
+#grom_doms() { grommunio-admin domain list |awk '{print $2}' ; }
+grom_doms() { grommunio-admin domain query domainname |sed '/domainname/d' ; }
 # List User
 
 grom_users() {
