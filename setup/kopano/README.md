@@ -68,24 +68,36 @@ REM
 
 #### On our new grommunio-host
 
-> ForwardAgent=yes
+> ssh grommunio-host -o ForwardAgent=yes -l root
 
 ```
-#apt-get install --yes sshfs
-zypper --non-interactive install --auto-agree-with-licenses sshfs --yes
-mkdir -p ~/import
+zypper install sshfs --yes
+mkdir -p ~/import ~/bin
+# Walter's Script https://github.com/grommunio/gromox/blob/master/tools/kopano2grommunio.sh
 wget -P ~/bin/ https://raw.githubusercontent.com/grommunio/gromox/master/tools/kopano2grommunio.sh
 SCRIPT="/root/bin/kopano2grommunio.sh"
 chmod +x $SCRIPT
-sed -i 's/kopanodb.example.com/mail.'$(dnsdomainname)'/g' $SCRIPT
-sed -i 's|/srv/kopano/attachments|/var/lib/kopano/attachments|g' $SCRIPT
-sed 's/^CreateGrommunioMailbox=.*/CreateGrommunioMailbox=0/' $SCRIPT
-sed -i 's/GrommunioUser/gromox/g' $SCRIPT
-sed -i 's/KopanoUserPWD/#KopanoUserPWD/g' $SCRIPT
-sed -i 's|/tmp/|/root/import/|g' $SCRIPT
-MYSQLPASS=$(ssh root@mail.$(dnsdomainname) cat ~/.mysql_pass_gromox)
-sed -i 's/Secret_mysql_Password/'$MYSQLPASS'/g' $SCRIPT
-sed -i '/KopanoMySqlPWD=""/d' $SCRIPT
-ssh -t root@mail.$(dnsdomainname) -- "for user in \$(kopano-admin -l |tail -n +5|head -n -1|awk '{print \$1}'); do EMAIL=\$(kopano-admin --details \${user} | sed -n '/address\:\s/ p'|awk '{print \$NF}'); GUID=\$(kopano-admin --details \${user} | sed -n '/GUID\:\s/ p'|awk '{print \$NF}');echo "\$EMAIL,\$GUID,1" ;done" |tee -a ~/import/k2g_list.txt
+# setup connection-info
+KOPANOSERVER="mail.$(dnsdomainname)"
+MYSQLPASS=$(ssh $KOPANOSERVER cat ~/.mysql_pass_gromox)
+MYSQLDATABASE=$(ssh $KOPANOSERVER cat ~/.mysql_database)
+# generate k2glist
+# OLD but should still work..
+ssh -t $KOPANOSERVER -- "for user in \$(kopano-admin -l |tail -n +5|head -n -1|awk '{print \$1}'); do EMAIL=\$(kopano-admin --details \${user} | sed -n '/address\:\s/ p'|awk '{print \$NF}'); GUID=\$(kopano-admin --details \${user} | sed -n '/GUID\:\s/ p'|awk '{print \$NF}');echo "\$EMAIL,\$GUID,1" ;done" |tee -a ~/import/k2g_list.txt
+# new alternative: https://github.com/grommunio/gromox/blob/master/tools/create_k2g_migration_lists.sh
+# run on kopano-host and save on grommunio-host as ~/import/k2g_list.txt
+# sed script replace stuff
+sed -i -f - <<_SED_  $SCRIPT
+/^KopanoServer/s/kopano.example.com/$KOPANOSERVER/
+/^KopanoAttachments/s/srv/var\/lib/
+/^KopanoMySqlUser/s/GrommunioUser/gromox/
+/^KopanoMySqlPWD/s/Secret_mysql_Password/$MYSQLPASS/
+s/^KopanoDB=.*/KopanoDB="$MYSQLDATABASE"/
+s|/tmp/|/root/import/|g
+/^CreateGrommunioMailbox/s/1/0/
+_SED_
+# And now you can execute the importer
+/root/bin/kopano2grommunio.sh
 ```
 
+Good luck!
