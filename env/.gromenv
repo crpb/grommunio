@@ -1,25 +1,45 @@
 # vim: filetype=bash
+# shellcheck lang=bash
 # shellcheck disable=2059,2145
 
 # Show Disk-Usage of all BTRFS-Volumes
-du_btrfs () { mount -t btrfs | awk '!/snapshots/ {print $3}' | xargs -n 1 du -hsx | sort -h ; }
-usage_btrfs () { mount -t btrfs | awk '!/snapshots/ {print $3}' | while read -r mntp; do echo $mntp; btrfs fi us $mntp; done ; }
+du_btrfs() { mount -t btrfs | awk '!/snapshots/ {print $3}' | xargs -n 1 du -hsx | sort -h; }
+usage_btrfs() {
+  mount -t btrfs | awk '!/snapshots/ {print $3}' |
+    while read -r mntp; do
+      echo $mntp
+      btrfs filesystem usage $mntp
+    done
+}
 
-# Show Disk-Usage of mailboxes 
+# Show Disk-Usage of mailboxes
 alias grom_du='grommunio-admin user query username maildir |sed '1,2d' | while read -r user mdir; do printf "%s\t%s\t%s\n" "$mdir" "$user" "$(du -hs ${mdir}|cut -f1)" ; done  |sort -h -k3'
 
 # Get Grommunio-Package-Versions
 _grom_versions() {
   if test -f /etc/debian_version; then
-    dpkg-query -Wf '${Package;-40}${Version;-30};${Maintainer}\n' |awk -F\; '/(grommunio|gromox)/ {print $1}'
+    dpkg-query -Wf '${Package;-40}${Version;-30};${Maintainer}\n' ${1-} | awk -F\; '/(grommunio|gromox)/ {print $1}'
   else
-    rpm -q -a --qf "%-40{Name}%-15{Release}%{Version};%{Vendor}\n" | sort | awk -F\; '/grommunio/ {print $1}' 
+    rpm -q -a --qf "%-40{Name}%-15{Release}%{Version}:%{Vendor}\n" ${1-} | sort | awk -F: '/grommunio/ {print $1}'
   fi
+}
+
+_grom_min_version() {
+  # Set minimum Gromox-Release
+  # G='1.31-49-g32e8f22fb'
+  # V=$(rpm -q --queryformat='%{VERSION}\n' gromox)
+  # printf '%s\n' "$G" "$V" |sort -C -V || { echo >&2 "Error: Gromox not compatible. Minimal version: $G"; exit 1; }
+  local min cur
+  min=$1
+  cur=$(_grom_versions gromox | awk '{print$2}')
+  printf '%s\n' "$min" "$cur" | sort -C -V || {
+    echo >&2 "Error: Gromox not compatible. Minimal version: $min"
+    exit 1
+  }
 }
 #
 # Completion w/o completion-package
-if ! command -v register-python-argcomplete &> /dev/null
-then
+if ! command -v register-python-argcomplete &>/dev/null; then
   eval "$(register-python-argcomplete3 grommunio-admin --complete)"
 else
   eval "$(register-python-argcomplete grommunio-admin --complete)"
@@ -31,16 +51,15 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
-function red { printf "${RED}$@${NC}\n" ; }
-function green { printf "${GREEN}$@${NC}\n" ; }
-function yellow { printf "${YELLOW}$@${NC}\n" ; }
-function blue { printf "${BLUE}$@${NC}\n" ; }
+function red { printf "${RED}$@${NC}\n"; }
+function green { printf "${GREEN}$@${NC}\n"; }
+function yellow { printf "${YELLOW}$@${NC}\n"; }
+function blue { printf "${BLUE}$@${NC}\n"; }
 
-
-grom_svcs="$(systemctl --output json list-units| jq -r '.[]|select(.unit|test("(^grom.*|nginx|.*fpm).service")).unit')"
+grom_svcs="$(systemctl --output json list-units | jq -r '.[]|select(.unit|test("(^grom.*|nginx|.*fpm).service")).unit')"
 export grom_svcs
 # Grommunio Konsolen Helferlein
-_grom_query_maildir(){
+_grom_query_maildir() {
   grommunio-admin user query --filter username="${1}" maildir
 }
 
@@ -56,18 +75,23 @@ grommunio_sync_tail() {
   screen -r -d gst
 }
 
-
 # Gromox - Cleanup already deleted files
 grom_cleanup() {
   local maildir
-  MESSAGE="\n\tTo really cleanup use: "$(blue "grom_cleanup")" "$(red "clean")"\n"
-  SWITCH="-n";
-  if [[ "$1" = "clean" ]]; then SWITCH="";MESSAGE=""; fi
+  # /usr/libexec/gromomx/cleaner gone 2023-06-14 Version 2.10+
+  # https://github.com/grommunio/gromox/commit/78d49b73d486f4b464d5b8c5aeaeff072774a3fd
+  # gromox-mbop .. purge-datafiles added
+  # https://github.com/grommunio/gromox/commit/9ac48e1684fe069d12202de8a851586969a46a5e
   for user in $(grom_users); do
-    yellow "User: ${user}:"
+    yellow "User: ${user}"
     maildir="$(_grom_query_maildir $user)"
-    /usr/libexec/gromox/cleaner "${SWITCH}" -d "${maildir}" |grep --color=always -e "^" -e "[^ ]*[0-9](M|G)B" 
-    test -e $SWITCH && ( printf 'vacuum: %s\n' "${maildir}" ; /usr/sbin/gromox-mbop -d "${maildir}" vacuum)
+    if _grom_min_version "2.10"; then
+      gromox-mbop -d "${maildir}" purge-datafiles
+    else
+      /usr/libexec/gromox/cleaner -d "${maildir}" | grep --color=always -e "^" -e "[^ ]*[0-9](M|G)B"
+    fi
+    printf 'vacuum: %s\n' "${maildir}"
+    gromox-mbop -d "${maildir}" vacuum
   done
   echo -e "$MESSAGE"
 }
@@ -75,13 +99,13 @@ grom_cleanup() {
 _grom_query_trashbin_count() {
   local user mdir sel
   _grom_users="${_grom_users:=$(grom_users)}"
-  if [[ "$#" -eq 0 ]]; then
+  if [[ $# -eq 0 ]]; then
     for user in $_grom_users; do
       printf '%s;%s\n' "$user" "$(_grom_query_trashbin_count "${user}")"
     done
   fi
-  if [[ "$#" -eq 1 ]]; then
-    if [[ "$_grom_users" =~ "$1" ]]; then
+  if [[ $# -eq 1 ]]; then
+    if [[ $_grom_users =~ $1 ]]; then
       user="$1"
       mdir="$(_grom_query_maildir ${user})/exmdb/exchange.sqlite3"
       sel="select count(message_id) from messages where parent_fid=0xb;"
@@ -92,9 +116,9 @@ _grom_query_trashbin_count() {
 
 _grom_query_trashbin_ids() {
   local user mdir sel
-  if [[ "$#" -eq 1 ]]; then
+  if [[ $# -eq 1 ]]; then
     _grom_users="${_grom_users:=$(grom_users)}"
-    if [[ "$_grom_users" =~ "$1" ]]; then
+    if [[ $_grom_users =~ $1 ]]; then
       mdir="$(_grom_query_maildir $1)/exmdb/exchange.sqlite3"
       sel="select message_id from messages where parent_fid=0xb;"
       printf '%s ' "$(sqlite3 ${mdir} "${sel}")"
@@ -105,13 +129,13 @@ _grom_query_trashbin_ids() {
 _grom_empty_trashbin() {
   local user msgid
   _grom_users="${_grom_users:=$(grom_users)}"
-  if [[ "$#" -eq 0 ]]; then
+  if [[ $# -eq 0 ]]; then
     for user in $_grom_users; do
       _grom_empty_trashbin "${user}"
     done
   fi
-  if [[ "$#" -eq 1 ]]; then
-    if [[ "$_grom_users" =~ "$1" ]]; then
+  if [[ $# -eq 1 ]]; then
+    if [[ $_grom_users =~ $1 ]]; then
       user="$1"
       logger -t grom_empty_trashbin \
         "$user: $(_grom_query_trashbin_count "$user") messages to remove"
@@ -120,17 +144,17 @@ _grom_empty_trashbin() {
       done
     fi
   fi
-  if [[ "$#" -eq 2 ]]; then
+  if [[ $# -eq 2 ]]; then
     _grom_users="${_grom_users:=$(grom_users)}"
-    if [[ "$_grom_users" =~ "$1" ]]; then
+    if [[ $_grom_users =~ $1 ]]; then
       user="$1"
       msgid="$2"
       (
-      printf '%s: %s\n' "${user}" "${msgid}"
-      # changed!!! https://github.com/grommunio/gromox/commit/a2c84a9417a425315a2553629bb6b5414713334f
-      # /usr/sbin/gromox-mbop -u "${USERNAME}" delmsg -f 0x17 "${MSGID}"
-      /usr/sbin/gromox-mbop -u "${user}" delmsg -f 0xb "${msgid}" 
-      ) | logger -t _grom_empty_trashbin 
+        printf '%s: %s\n' "${user}" "${msgid}"
+        # changed!!! https://github.com/grommunio/gromox/commit/a2c84a9417a425315a2553629bb6b5414713334f
+        # /usr/sbin/gromox-mbop -u "${USERNAME}" delmsg -f 0x17 "${MSGID}"
+        gromox-mbop -u "${user}" delmsg -f 0xb "${msgid}"
+      ) | logger -t _grom_empty_trashbin
     fi
   fi
 }
@@ -138,32 +162,31 @@ _grom_empty_trashbin() {
 grom_empty_trashbin() {
   local user msgid
   _grom_users="${_grom_users:=$(grom_users)}"
-  if [[ "$#" -eq 0 ]]; then
+  if [[ $# -eq 0 ]]; then
     for user in $_grom_users; do
       grom_empty_trashbin "${user}"
     done
   fi
-  if [[ "$#" -eq 1 ]]; then
-    if [[ "$_grom_users" =~ "$1" ]]; then
+  if [[ $# -eq 1 ]]; then
+    if [[ $_grom_users =~ $1 ]]; then
       user="$1"
       (
-      printf 'emptyfld 0xb of user: %s\n' "${user}"
-      # changed!!! https://github.com/grommunio/gromox/commit/a2c84a9417a425315a2553629bb6b5414713334f
-      # /usr/sbin/gromox-mbop -u "${USERNAME}" delmsg -f 0x17 "${MSGID}"
-      /usr/sbin/gromox-mbop -u "${user}" emptyfld -R 0xb
-      ) | logger -t grom_empty_trashbin 
+        printf 'emptyfld 0xb of user: %s\n' "${user}"
+        # changed!!! https://github.com/grommunio/gromox/commit/a2c84a9417a425315a2553629bb6b5414713334f
+        # /usr/sbin/gromox-mbop -u "${USERNAME}" delmsg -f 0x17 "${MSGID}"
+        gromox-mbop -u "${user}" emptyfld -R 0xb
+      ) | logger -t grom_empty_trashbin
     fi
   fi
 }
 
 #/usr/libexec/gromox/delmsg -d $maildir -f 0xb ""${MSGID}"
 # Grommunio-Sync Redis-Cache List
-grommunio_sync_rediscache() { 
-  for key in $(redis-cli KEYS 'grommunio-sync*'|sort);
-  do
+grommunio_sync_rediscache() {
+  for key in $(redis-cli KEYS 'grommunio-sync*' | sort); do
     type=$(redis-cli type "$key")
     printf "%s\n" $key $type
-    if [[ "$type" = "hash" ]]; then
+    if [[ $type == "hash" ]]; then
       hashkeys=$(redis-cli hkeys "$key")
       # shellcheck disable=SC2086 # should be expanded
       printf "\t%s\n" $hashkeys
@@ -174,21 +197,21 @@ grommunio_sync_rediscache() {
 # Grommunio-Users
 # List Domains
 #grom_doms() { grommunio-admin domain list |awk '{print $2}' ; }
-grom_doms() { grommunio-admin domain query domainname |sed '/domainname/d' ; }
+grom_doms() { grommunio-admin domain query domainname | sed '/domainname/d'; }
 # List User
 
 grom_users() {
   local doms
-  if [[ "$#" -ge 1 ]]; then
-    doms=$(grep "^${1}" <<< "$(grom_doms)")
+  if [[ $# -ge 1 ]]; then
+    doms=$(grep "^${1}" <<<"$(grom_doms)")
   else
     doms=$(grom_doms)
   fi
   for dom in $doms; do
-    grommunio-admin user query username status maildir --format json-structured | \
-      jq -r '.[]|select((.username|endswith("'"${dom}"'")) and (.maildir|startswith("\/var")))|.username'
-#    grommunio-admin user query --format json-structured | \
-#    jq -r '.[]|select(.username|endswith("'"${dom}"'"))|.username'
+    grommunio-admin user query username status maildir --format json-structured |
+      jq -r '.[]|select((.username|endswith("'"${dom}"'")) and (.maildir|.!="") and (.status==0))|.username'
+    #    grommunio-admin user query --format json-structured | \
+    #    jq -r '.[]|select(.username|endswith("'"${dom}"'"))|.username'
   done
 }
 
@@ -234,56 +257,55 @@ _exmdb_std_folders="$(echo 0x{10..12} 0x{a..f})"
 exmdb_list_folders() {
   local U SHORT RE HEXIT
   case $1 in
-    "$(grep "^$1" <<< $(grom_users))") 
-      U="${1}"
-      shift;;
-    *)return 1;;
+  "$(grep "^$1" <<<$(grom_users))")
+    U="${1}"
+    shift
+    ;;
+  *) return 1 ;;
   esac
-  for arg in "$@"
-  do
+  for arg in "$@"; do
     case "$arg" in
-      -s) SHORT=1;;
-      -r) RE="-r";;
-      -h) HEXIT=1;;
-      *);;
+    -s) SHORT=1 ;;
+    -r) RE="-r" ;;
+    -h) HEXIT=1 ;;
+    *) ;;
     esac
   done
-  grommunio-admin exmdb "${U}" folder list --format csv $RE |sed '1d' |awk -F, '{print $1";"$3}' | while read LINE; do
-  if [ ${HEXIT+x} ] ; then LINE=$(echo $LINE|awk -F";" '{printf "0x%x;%s\n", $1, $2}') ; fi
-  if [ ${SHORT+x} ] ; then LINE=$(echo $LINE|cut -d";" -f1) ; fi
-  echo "${LINE}"
-done
+  grommunio-admin exmdb "${U}" folder list --format csv $RE | sed '1d' | awk -F, '{print $1";"$3}' | while read LINE; do
+    if [ ${HEXIT+x} ]; then LINE=$(echo $LINE | awk -F";" '{printf "0x%x;%s\n", $1, $2}'); fi
+    if [ ${SHORT+x} ]; then LINE=$(echo $LINE | cut -d";" -f1); fi
+    echo "${LINE}"
+  done
 }
 
-_exmdb_folders_long(){ exmdb_list_folders $1 -r -h ; }
-_exmdb_folders_short(){ exmdb_list_folders $1 -r -h  -s ; }
-
+_exmdb_folders_long() { exmdb_list_folders $1 -r -h; }
+_exmdb_folders_short() { exmdb_list_folders $1 -r -h -s; }
 
 # Learn Ham from a specific Folder
 _grom_learn_ham() {
   local FLD MBX QRY USR ID MID
   _grom_users="${_grom_users:=$(grom_users)}"
-  if [[ "$#" -eq 0 ]]; then
+  if [[ $# -eq 0 ]]; then
     for USR in $_grom_users; do
       _grom_learn_ham "${USR}"
     done
-  elif [[ "$#" -eq 1 ]]; then
-    if [[ "$_grom_users" =~ "${1}" ]]; then
+  elif [[ $# -eq 1 ]]; then
+    if [[ $_grom_users =~ ${1} ]]; then
       USR="${1}"
-      FLD="$(_exmdb_folders_long ${USR} |awk -F';' '/;Non-Junk/ {print $1}')"
+      FLD="$(_exmdb_folders_long ${USR} | awk -F';' '/;Non-Junk/ {print $1}')"
       if ! test -z $FLD; then
-        printf 'Folder Non-Junk found for User: %s with Folder-ID: %s\n' "${USR}" "${FLD}" |systemd-cat -t grom_learn_ham
+        printf 'Folder Non-Junk found for User: %s with Folder-ID: %s\n' "${USR}" "${FLD}" | systemd-cat -t grom_learn_ham
         MBX="$(_grom_query_maildir ${USR})"
         QRY="select message_id,mid_string from messages where parent_fid=${FLD};"
-        sqlite3 -tabs -noheader "${MBX}/exmdb/exchange.sqlite3" "${QRY}"| while read -r ID MID; do
-        if ! test -z $MID; then
-          rspamc learn_ham "${MBX}/eml/${MID}" | systemd-cat -t grom_learn_ham
-        else
-          gromox-exm2eml -u "${USR}" "${ID}" 2>/dev/null| rspamc learn_ham | systemd-cat -t grom_learn_ham
-        fi
-      done
-    else
-      printf 'No Non-Junk Folder found for User: %s\n' "${USR}" |systemd-cat -t grom_learn_ham
+        sqlite3 -tabs -noheader "${MBX}/exmdb/exchange.sqlite3" "${QRY}" | while read -r ID MID; do
+          if ! test -z $MID; then
+            rspamc learn_ham "${MBX}/eml/${MID}" | systemd-cat -t grom_learn_ham
+          else
+            gromox-exm2eml -u "${USR}" "${ID}" 2>/dev/null | rspamc learn_ham | systemd-cat -t grom_learn_ham
+          fi
+        done
+      else
+        printf 'No Non-Junk Folder found for User: %s\n' "${USR}" | systemd-cat -t grom_learn_ham
       fi
     fi
   fi
@@ -293,12 +315,12 @@ _grom_learn_ham() {
 exmdb_get_permissions() {
   local short folders owner short
   _grom_users="${_grom_users:=$(grom_users)}"
-  if [[ "$_grom_users" =~ $1 ]]; then
+  if [[ $_grom_users =~ $1 ]]; then
     owner="${1}"
     folders=${folders:="$(_exmdb_folders_long $owner)"}
     short=${short:="$(_exmdb_folders_short $owner)"}
     for name in $short; do
-      echo $(awk "/^$name;/" <<< $folders)
+      echo $(awk "/^$name;/" <<<$folders)
       grommunio-admin exmdb "${owner}" folder permissions "${name}" ${user}
     done
   fi
@@ -307,13 +329,13 @@ complete -F _comp_grom_users exmdb_get_permissions
 
 exmdb_get_permissions_hr() {
   local OWNER FID PFLDS FOLDER EXMDB SQLQUERY RET
-  if [[ "$#" -ne 1 ]]; then
+  if [[ $# -ne 1 ]]; then
     echo "Usage: ${FUNCNAME[0]} username@domain.tld"
     return 1
   fi
-  _grom_users="${_grom_users:=$(grommunio-admin user query username |sed 1d)}"
+  _grom_users="${_grom_users:=$(grommunio-admin user query username | sed 1d)}"
   # Check for correct Username
-  if [[ "$_grom_users" =~ $1 ]]; then
+  if [[ $_grom_users =~ $1 ]]; then
     OWNER="${1}"
     EXMDB="$(grommunio-admin user query maildir --filter username="$OWNER")/exmdb/exchange.sqlite3"
     # grommunio-admin taginfo 805371935
@@ -325,40 +347,40 @@ exmdb_get_permissions_hr() {
 SELECT DISTINCT(printf('0x%x', p.folder_id)) as hexfid FROM permissions p
 WHERE p.username != 'default';
 "
-      # True if FILE exists and is readable.
-      if [ -r "$EXMDB" ]; then
-        PFLDS="$(echo "$SQLQUERY" |sqlite3 --readonly --noheader "$EXMDB")"
-        if [ "${#PFLDS}" -eq 0 ]; then 
-          echo "No special permissions in MBX: $OWNER"
-          return 0
-        fi
-        grommunio-admin exmdb "$OWNER" folder list -r | while read -r FOLDER; do
-          # Leading '\' in front of grep to make sure no aliases are used.
-          FID="$(echo "$FOLDER" |\grep -Po '0x(?<=\ \(0x).*(?=\)$)')"
-          echo -e "\033[1m${FOLDER}\033[0m"
-          if [[ "$PFLDS" =~ $FID ]]; then
-            grommunio-admin exmdb "$OWNER" folder permissions "$FID"
-          fi
-        done
+    # True if FILE exists and is readable.
+    if [ -r "$EXMDB" ]; then
+      PFLDS="$(echo "$SQLQUERY" | sqlite3 --readonly --noheader "$EXMDB")"
+      if [ "${#PFLDS}" -eq 0 ]; then
+        echo "No special permissions in MBX: $OWNER"
+        return 0
       fi
+      grommunio-admin exmdb "$OWNER" folder list -r | while read -r FOLDER; do
+        # Leading '\' in front of grep to make sure no aliases are used.
+        FID="$(echo "$FOLDER" | \grep -Po '0x(?<=\ \(0x).*(?=\)$)')"
+        echo -e "\033[1m${FOLDER}\033[0m"
+        if [[ $PFLDS =~ $FID ]]; then
+          grommunio-admin exmdb "$OWNER" folder permissions "$FID"
+        fi
+      done
+    fi
   fi
 }
 complete -F _comp_grom_users exmdb_get_permissions_hr
 
 #GetStdFolderRights
-exmdb_get_stdFolders() { 
+exmdb_get_stdFolders() {
   local owner user
-  if [[ "$#" -lt 1 ]]; then
+  if [[ $# -lt 1 ]]; then
     echo 'wrong opt-count: $1=owner [$2=user]'
     return 1
   else
     owner="${1}"
-    user="${2:-}"
+    user="${2-}"
     dirs=$(exmdb_list_folders "${owner}")
     #acl="${3}"
     for folder in 0x9 ${_exmdb_std_folders}; do
-      grep "${folder}" <<< "${dirs}"
-      if [[ "$#" -ge 2 ]]; then
+      grep "${folder}" <<<"${dirs}"
+      if [[ $# -ge 2 ]]; then
         printf "%s\t" "${folder}"
       fi
       # shellcheck disable=SC2086 # don't use if empty
@@ -373,10 +395,10 @@ _comp_grom_users() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   case $COMP_CWORD in
-    1)
-      COMPREPLY=( $(compgen -W "${_grom_users}" -- ${cur}) )
-      compopt +o nospace
-      ;;
+  1)
+    COMPREPLY=($(compgen -W "${_grom_users}" -- ${cur}))
+    compopt +o nospace
+    ;;
   esac
   return 0
 }
@@ -385,9 +407,9 @@ complete -F _comp_grom_users exmdb_get_stdFolders
 complete -F _comp_grom_users _grom_query_trashbin_count _grom_query_maildir _grom_query_trashbin_ids _grom_empty_trashbin _grom_learn_ham
 
 ##SetStdFolderRights
-exmdb_set_stdFolders() { 
+exmdb_set_stdFolders() {
   local owner user acl acls
-  if [[ "$#" -ge 3 ]]; then
+  if [[ $# -ge 3 ]]; then
     owner="${1}"
     user="${2}"
     shift 2
@@ -408,15 +430,15 @@ _comp_exmdb_set_stdFolders() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   case $COMP_CWORD in
-    1)
-      COMPREPLY=( $(compgen -W "${_grom_users}" -- ${cur}) )
-      ;;
-    2)
-      COMPREPLY=( $(compgen -W "${_grom_users}" -- ${cur}) )
-      ;;
-    *)
-      COMPREPLY=( $(compgen -W "\$ACL ${ACL}" -- ${cur}) )
-      ;;
+  1)
+    COMPREPLY=($(compgen -W "${_grom_users}" -- ${cur}))
+    ;;
+  2)
+    COMPREPLY=($(compgen -W "${_grom_users}" -- ${cur}))
+    ;;
+  *)
+    COMPREPLY=($(compgen -W "\$ACL ${ACL}" -- ${cur}))
+    ;;
   esac
   return 0
 }
@@ -427,4 +449,3 @@ complete -F _comp_exmdb_set_stdFolders exmdb_set_stdFolders
 # for user in $(grom_users); do grommunio-admin exmdb $user folder grant 0xf my.accountname@mycompany.tld $ACL_EDITOR ;done
 # check on all users which permissions are set for 00xf Calendar (optionally with some username to only show this settings.
 # for user in $(grom_users); do grommunio-admin exmdb $user folder permissions 0xfl d;done
-

@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # vim: ts=2 sw=2 sts=2 et
 # Copyright © 2023 Christopher Bock <christopher@bocki.com>
 # SPDX-License-Identifier: MIT
 
 echo "Number of Packages: $(dpkg -l |grep '^ii' |wc -l)"
 
-apt-get update
+apt-get update >/dev/null
 apt-get install wget xz-utils --yes
 
 rpms="grommunio-admin-common grommunio-common"
@@ -33,7 +33,7 @@ echo "Setting up Build-Environment"
 TMPBLD=$(mktemp -d --suffix=nginx)
 cd $TMPBLD || exit
 chmod 775 $TMPBLD
-PKGS=(${PKGS[@]} $(apt-get --assume-no --download-only --mark-auto -u build-dep nginx | sed '0,/The following NEW packages will be installed/d;/^[^ ]/,$d'))
+PKGS="(${PKGS[@]} $(apt-get --assume-no --download-only --mark-auto -u build-dep nginx | sed '0,/The following NEW packages will be installed/d;/^[^ ]/,$d'))"
 apt-get --yes --mark-auto -u build-dep nginx >/dev/null
 apt-get -o APT::Sandbox::Seccomp=0 source nginx >/dev/null
 
@@ -78,6 +78,6 @@ echo "Restarting NGINX"
 nginx -t && systemctl restart nginx.service
 
 echo "Removing temporary packages"
-apt-get --yes --autoremove purge ${PKGS[@]} >/dev/null
+apt-get --yes --purge --autoremove remove ${PKGS[@]} >/dev/null
 echo "Number of Packages: $(dpkg -l |grep '^ii' |wc -l)"
 exit 0

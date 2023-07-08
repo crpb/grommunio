@@ -24,6 +24,9 @@ export EDITOR=/usr/bin/vim
 #
 #export PILOTPORT=/dev/pilot
 #export PILOTRATE=115200
+force_color_prompt=yes
+
+test -s /etc/bash.bashrc && . /etc/bash.bashrc|| true
 test -s /etc/skel/.bashrc && . /etc/skel/.bashrc|| true
 test -s /etc/bash_completion && . /etc/bash_completion || true
 

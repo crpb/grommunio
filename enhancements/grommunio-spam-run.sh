@@ -26,11 +26,11 @@ if ${MYSQL_CMD[@]}<<<"exit"&>/dev/null; then
         gromox-exm2eml -u "${USERNAME}" "${MESSAGEID}" 2>/dev/null | rspamc learn_spam "$MSGFILE" | systemd-cat -t grommunio-spam-run
       else
         rspamc learn_spam "$MSGFILE" | systemd-cat -t grommunio-spam-run
-        # ??? this will always result in 0 as systemd-cat is run as the last command.
-        EXITSTATUS=$?
-        if [ ${EXITSTATUS} -eq 0 ]; then
-          /usr/sbin/gromox-mbop -u "${USERNAME}" delmsg -f 0x17 "${MESSAGEID}" | systemd-cat -t grommunio-spam-run
-        fi
+      	# ??? this will always result in 0 as systemd-cat is run as the last command.
+      	EXITSTATUS=$?
+      	if [ ${EXITSTATUS} -eq 0 ]; then
+      	  /usr/sbin/gromox-mbop -u "${USERNAME}" delmsg -f 0x17 "${MESSAGEID}" | systemd-cat -t grommunio-spam-run
+      	fi
       fi
     done
   done
