@@ -20,7 +20,7 @@ _grom_versions() {
   if test -f /etc/debian_version; then
     dpkg-query -Wf '${Package;-40}${Version;-30};${Maintainer}\n' ${1-} | awk -F\; '/(grommunio|gromox)/ {print $1}'
   else
-    rpm -q -a --qf "%-40{Name}%-15{Release}%{Version}:%{Vendor}\n" ${1-} | sort | awk -F: '/grommunio/ {print $1}'
+    rpm -q -a --qf "%-40{Name}%-30{Version}%{Release}:%{Vendor}\n" ${1-} | sort | awk -F: '/grommunio/ {print $1}'
   fi
 }
 
@@ -34,7 +34,7 @@ _grom_min_version() {
   cur=$(_grom_versions gromox | awk '{print$2}')
   printf '%s\n' "$min" "$cur" | sort -C -V || {
     echo >&2 "Error: Gromox not compatible. Minimal version: $min"
-    exit 1
+    return 1
   }
 }
 #
@@ -85,7 +85,7 @@ grom_cleanup() {
   for user in $(grom_users); do
     yellow "User: ${user}"
     maildir="$(_grom_query_maildir $user)"
-    if _grom_min_version "2.10"; then
+    if _grom_min_version "2.10" 2>/dev/null; then
       gromox-mbop -d "${maildir}" purge-datafiles
     else
       /usr/libexec/gromox/cleaner -d "${maildir}" | grep --color=always -e "^" -e "[^ ]*[0-9](M|G)B"
