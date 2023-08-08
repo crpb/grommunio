@@ -50,19 +50,23 @@ cp objs/ngx_http_vhost_traffic_status_module.so $LIBDIR/
 echo  "load_module $LIBDIR/ngx_http_vhost_traffic_status_module.so;" > /etc/nginx/modules-available/90-mod-vhost-traffic-status.conf
 ln -f -s /etc/nginx/modules-available/90-mod-vhost-traffic-status.conf /etc/nginx/modules-enabled/
 
-echo "Building nginx module: brotli"
-cd $TMPBLD || exit
-[[ ! -d ngx_brotli ]] && git clone https://github.com/google/ngx_brotli.git
-cd nginx-*/ || exit
-OPTS="$(echo $(nginx -V |& grep configure\ arguments |sed 's/.*prefix/--prefix/') --add-dynamic-module=../ngx_brotli/)"
-./configure $OPTS >/dev/null
-make modules >/dev/null
-cp objs/ngx_http_brotli_*.so $LIBDIR/
-cat << EOF > /etc/nginx/modules-available/90-mod-brotli.conf
+if grep -q bookworm /etc/os-release; then
+  apt-get install libnginx-mod-http-brotli-static libnginx-mod-http-brotli-filter --yes
+else
+  echo "Building nginx module: brotli"
+  cd $TMPBLD || exit
+  [[ ! -d ngx_brotli ]] && git clone https://github.com/google/ngx_brotli.git
+  cd nginx-*/ || exit
+  OPTS="$(echo $(nginx -V |& grep configure\ arguments |sed 's/.*prefix/--prefix/') --add-dynamic-module=../ngx_brotli/)"
+  ./configure $OPTS >/dev/null
+  make modules >/dev/null
+  cp objs/ngx_http_brotli_*.so $LIBDIR/
+  cat << EOF > /etc/nginx/modules-available/90-mod-brotli.conf
 load_module $LIBDIR/ngx_http_brotli_filter_module.so;
 load_module $LIBDIR/ngx_http_brotli_static_module.so;
 EOF
-ln -f -s /etc/nginx/modules-available/90-mod-brotli.conf /etc/nginx/modules-enabled/
+  ln -f -s /etc/nginx/modules-available/90-mod-brotli.conf /etc/nginx/modules-enabled/
+fi
 
 echo "Extracting and installing configuration-files"
 cd $TMPCONV || exit
