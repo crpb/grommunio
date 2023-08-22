@@ -21,7 +21,7 @@ _get_rpm_url() {
 }
 # Keep list of packages to cleanup behind ourself
 PKGS=()
-PKGS="(${PKGS[@]} $(apt-get --assume-no --download-only --mark-auto -u install alien | sed '0,/The following NEW packages will be installed/d;/^[^ ]/,$d'))"
+PKGS=( ${PKGS[@]} $(apt-get --assume-no --download-only --mark-auto -u install alien | sed '0,/The following NEW packages will be installed/d;/^[^ ]/,$d') )
 apt-get --yes --mark-auto -u install alien >/dev/null
 TMPCONV=$(mktemp -d --suffix=rpmconv)
 cd $TMPCONV || exit
@@ -33,7 +33,7 @@ echo "Setting up Build-Environment"
 TMPBLD=$(mktemp -d --suffix=nginx)
 cd $TMPBLD || exit
 chmod 775 $TMPBLD
-PKGS="(${PKGS[@]} $(apt-get --assume-no --download-only --mark-auto -u build-dep nginx | sed '0,/The following NEW packages will be installed/d;/^[^ ]/,$d'))"
+PKGS=( ${PKGS[@]} $(apt-get --assume-no --download-only --mark-auto -u build-dep nginx | sed '0,/The following NEW packages will be installed/d;/^[^ ]/,$d') )
 apt-get --yes --mark-auto -u build-dep nginx >/dev/null
 apt-get -o APT::Sandbox::Seccomp=0 source nginx >/dev/null
 
@@ -82,6 +82,6 @@ echo "Restarting NGINX"
 nginx -t && systemctl restart nginx.service
 
 echo "Removing temporary packages"
-apt-get --yes --purge --autoremove remove ${PKGS[@]} >/dev/null
-echo "Number of Packages: $(dpkg -l |grep '^ii' |wc -l)"
+apt-get --yes --purge --autoremove remove "${PKGS[@]}" >/dev/null
+echo "Number of Packages: $(dpkg -l |grep -c '^ii')"
 exit 0
