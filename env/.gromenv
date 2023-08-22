@@ -172,13 +172,12 @@ grom_empty_trashbin() {
       user="$1"
       (
         printf 'emptyfld 0xb of user: %s\n' "${user}"
-        # changed!!! https://github.com/grommunio/gromox/commit/a2c84a9417a425315a2553629bb6b5414713334f
-        # /usr/sbin/gromox-mbop -u "${USERNAME}" delmsg -f 0x17 "${MSGID}"
         gromox-mbop -u "${user}" emptyfld -R 0xb
       ) | logger -t grom_empty_trashbin
     fi
   fi
 }
+complete -F _comp_grom_users grom_empty_trashbin
 
 #/usr/libexec/gromox/delmsg -d $maildir -f 0xb ""${MSGID}"
 # Grommunio-Sync Redis-Cache List
