@@ -173,7 +173,7 @@ grom_empty_trashbin() {
       (
         printf 'emptyfld 0xb of user: %s\n' "${user}"
         gromox-mbop -u "${user}" emptyfld -R 0xb
-      ) | logger -t grom_empty_trashbin
+      ) | tee | logger -t grom_empty_trashbin
     fi
   fi
 }

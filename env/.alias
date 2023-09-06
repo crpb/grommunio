@@ -13,3 +13,5 @@ alias renix='nginx -t && nginx -s reload'
 alias snapconfs='snapper list-configs --columns config |tail -n +3'
 alias systemctl="systemctl --no-pager"
 alias zypup='zypp-refresh ; zypper --verbose up && zypper ps --print "systemctl status %s"'
+
+__delete_root_snapshots() { snapper -c root delete 0-$(snapper -c root ls |awk 'END{print $1}') ; }
