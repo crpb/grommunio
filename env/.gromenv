@@ -90,8 +90,8 @@ grom_cleanup() {
     else
       /usr/libexec/gromox/cleaner -d "${maildir}" | grep --color=always -e "^" -e "[^ ]*[0-9](M|G)B"
     fi
-    printf 'vacuum: %s\n' "${maildir}"
-    gromox-mbop -d "${maildir}" vacuum
+#    printf 'vacuum: %s\n' "${maildir}"
+#    gromox-mbop -d "${maildir}" vacuum
   done
   echo -e "$MESSAGE"
 }
@@ -366,6 +366,46 @@ WHERE p.username != 'default';
 }
 complete -F _comp_grom_users exmdb_get_permissions_hr
 
+exmdb_get_dom_permissions_hr() {
+  local OWNER FID PFLDS FOLDER EXMDB SQLQUERY RET
+  if [[ $# -ne 1 ]]; then
+    echo "Usage: ${FUNCNAME[0]} domain.tld"
+    return 1
+  fi
+  _grom_domains="${_grom_domains:=$(grommunio-admin domain query domainname | sed 1d)}"
+  # Check for correct Domainname
+  if [[ $_grom_domains =~ $1 ]]; then
+    OWNER="${1}"
+    EXMDB="$(grommunio-admin domain query homedir --filter domainname="$OWNER")/exmdb/exchange.sqlite3"
+    # grommunio-admin taginfo 805371935
+    # 0x3001001f (805371935): DISPLAYNAME, type WSTRING
+    SQLQUERY="
+-- THIS IS A COMMENT!
+-- SELECT DISTINCT(printf('0x%x', p.folder_id)) as hexfid, f1.propval FROM permissions p
+-- INNER JOIN folder_properties f1 on f1.folder_id = p.folder_id and f1.proptag = 805371935
+SELECT DISTINCT(printf('0x%x', p.folder_id)) as hexfid FROM permissions p
+WHERE p.username != 'default';
+"
+    # True if FILE exists and is readable.
+    if [ -r "$EXMDB" ]; then
+      PFLDS="$(echo "$SQLQUERY" | sqlite3 --readonly --noheader "$EXMDB")"
+      if [ "${#PFLDS}" -eq 0 ]; then
+        echo "No special permissions in MBX: $OWNER"
+        return 0
+      fi
+      grommunio-admin exmdb "$OWNER" folder list -r | while read -r FOLDER; do
+        # Leading '\' in front of grep to make sure no aliases are used.
+        FID="$(echo "$FOLDER" | \grep -Po '0x(?<=\ \(0x).*(?=\)$)')"
+        echo -e "\033[1m${FOLDER}\033[0m"
+        if [[ $PFLDS =~ $FID ]]; then
+          grommunio-admin exmdb "$OWNER" folder permissions "$FID"
+        fi
+      done
+    fi
+  fi
+}
+complete -F _comp_grom_doms exmdb_get_dom_permissions_hr
+
 #GetStdFolderRights
 exmdb_get_stdFolders() {
   local owner user
@@ -387,7 +427,22 @@ exmdb_get_stdFolders() {
     done
   fi
 }
+
 # completion
+_comp_grom_doms() {
+  _grom_domains="${_grom_domains:=$(grom_doms)}"
+  local cur
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  case $COMP_CWORD in
+  1)
+    COMPREPLY=($(compgen -W "${_grom_domains}" -- ${cur}))
+    compopt +o nospace
+    ;;
+  esac
+  return 0
+}
+
 _comp_grom_users() {
   _grom_users="${_grom_users:=$(grom_users)}"
   local cur
