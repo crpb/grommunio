@@ -82,10 +82,20 @@ KOPANOSERVER="mail.$(dnsdomainname)"
 MYSQLPASS=$(ssh $KOPANOSERVER cat ~/.mysql_pass_gromox)
 MYSQLDATABASE=$(ssh $KOPANOSERVER cat ~/.mysql_database)
 # generate k2glist
-# OLD but should still work..
-ssh -t $KOPANOSERVER -- "for user in \$(kopano-admin -l |tail -n +5|head -n -1|awk '{print \$1}'); do EMAIL=\$(kopano-admin --details \${user} | sed -n '/address\:\s/ p'|awk '{print \$NF}'); GUID=\$(kopano-admin --details \${user} | sed -n '/GUID\:\s/ p'|awk '{print \$NF}');echo "\$EMAIL,\$GUID,1" ;done" |tee -a ~/import/k2g_list.txt
-# new alternative: https://github.com/grommunio/gromox/blob/master/tools/create_k2g_migration_lists.sh
-# run on kopano-host and save on grommunio-host as ~/import/k2g_list.txt
+# OLD and probably won't work w/o the kdb-uidextract...
+# ssh -t $KOPANOSERVER -- "for user in \$(kopano-admin -l |tail -n +5|head -n -1|awk '{print \$1}'); do EMAIL=\$(kopano-admin --details \${user} | sed -n '/address\:\s/ p'|awk '{print \$NF}'); GUID=\$(kopano-admin --details \${user} | sed -n '/GUID\:\s/ p'|awk '{print \$NF}');echo "\$EMAIL,\$GUID,1" ;done" |tee -a ~/import/k2g_list.txt
+# NEW:
+# switch to kopano host
+ssh $KOPANOSERVER
+wget https://github.com/grommunio/gromox/raw/master/tools/create_k2g_migration_lists.sh
+wget https://github.com/grommunio/gromox/raw/master/tools/kdb-uidextract-limited
+chmod +x create_k2g_migration_lists.sh kdb-uidextract-limited
+./create_k2g_migration_lists.sh
+./kdb-uidextract-limited > kdb-uidextract.map
+exit
+# back on grommunio
+scp $KOPANOSERVER:/root/kdb-uidextract.map ~/import/
+scp $KOPANOSERVER:/tmp/k2g_list_raw.txt ~/import/k2g_list.txt
 # sed script replace stuff
 sed -i -f - <<_SED_  $SCRIPT
 /^KopanoServer/s/kopano.example.com/$KOPANOSERVER/
@@ -96,8 +106,14 @@ s/^KopanoDB=.*/KopanoDB="$MYSQLDATABASE"/
 s|/tmp/|/root/import/|g
 /^CreateGrommunioMailbox/s/1/0/
 _SED_
+# sed k2g_list.txt if made with create_k2g_migration_lists.sh because storeids
+# don't make problems with kopano-instances which has many orpahned stores :P>
+sed -i.bak -e 's/^# \(.*,1$\)/\1/g' -e 's/\(^.*,0$\)/# \1/g' /root/import/k2g_list.txt
+
 # And now you can execute the importer
 /root/bin/kopano2grommunio.sh
 ```
+
+# sed for 
 
 Good luck!

@@ -4,7 +4,7 @@
 # https://docs.grommunio.com/man/grommunio-admin-dbconf.html
 # https://docs.grommunio.com/man/grommunio-admin-mconf.html
 #
-# shellcheck disable=SC2016
+# shellcheck disable=SC2016 disable=SC2317
 #
 # gro-ad-exmdb-store sizes.. 2022/08 
 mb() { printf "(%f*1024^1)/1\n" "$1"| bc ; }
@@ -53,5 +53,6 @@ postconf smtp_use_tls yes
 postconf smtpd_tls_mandatory_protocols '!SSLv2,!SSLv3,!TLSv1,!TLSv1.1'
 postconf smtpd_tls_protocols '!SSLv2,!SSLv3,!TLSv1,!TLSv1.1'
 # - Relay-Host
-postconf smtp_sasl_password_maps 'lmdb:/etc/postfix/sasl_passwd'
+table='lmdb' ; postconf -m |grep -q $table || table='hash'
+postconf smtp_sasl_password_maps "${table}:/etc/postfix/sasl_passwd"
 # the rest via ./postfix/postfix.sh for now. or just from you config-mgmt :P

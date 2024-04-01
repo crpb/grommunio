@@ -22,7 +22,7 @@ HOSTS="${HOSTS} $SRV"
 printf "Possible Hosts: %s\n\n" "$HOSTS"
 for host in $HOSTS; do
   printf "Trying: %s\n\n" "$host"
-  $dscli -e "$EMAIL" -h "$host" 2>/dev/null | \
+  $dscli -v -e "$EMAIL" -h "$host" 2>/dev/null | \
     sed -e 's/</\n</g' | \
     grep -Po '(?=<[^\/]).*(?=$)' | \
     sed 's/^<//g;s/>/: /g;/:\s$/d' | \

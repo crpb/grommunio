@@ -1,5 +1,10 @@
-#!/usr/bin/env bash
-#set -x
+#!/bin/bash
+export PATH=/sbin:/usr/sbin:/usr/bin:/bin
+set -e
+recover_svcs() {
+  /usr/bin/systemctl start gromox-midb.service gromox-imap.service gromox-pop3.service
+}
+trap "recover_svcs" ERR
 SNAPCONF="gromox"
 #OPTS
 BDIR="$(awk '/grom.*nfs/ {print $2}' /etc/fstab)"
@@ -14,50 +19,75 @@ if [ ${#BDIR} -gt 0 ]; then
     #echo "NFS-Mount available."
     true
   else
-    echo "Target not mounted."
+    echo "${BDIR} not mounted."
 #    mount "${BDIR}"
     if mount "${BDIR}"; then
-      echo "Mount success!"
+      echo "Successfully mounted ${BDIR}"
     else
-      echo "Something went wrong with the mount..."
+      echo "Failed to mount ${BDIR}, exiting."
       exit 1
     fi
   fi
 else
-  echo "Backup-Target not Mounted"
+  echo "Couldn't mount backup directory, exiting."
   exit 1
 fi
 
 #get mysql-info's and `eval` so they will be available as var
 MYSQLCONF="/etc/gromox/mysql_adaptor.cfg"
-eval "$(sed 's/ //g' "${MYSQLCONF}")" || echo "[ERROR] ${COMMAND}"
+eval "$(sed 's/ //g' "${MYSQLCONF}")" || echo "[ERROR] MYSQL-EVAL"
+
+date -Is
+echo "Stopping midb/pop3/imap services"
+# stop services to/and cleanup sqlites
+/usr/bin/systemctl stop gromox-midb.service gromox-imap.service gromox-pop3.service
+for d in /var/lib/gromox/user/*/*; do 
+  /usr/sbin/gromox-mbop -d $d vacuum; 
+  /usr/sbin/gromox-mbop -d $d purge-datafiles;
+done
 
 #Gromox-Mount-Path
 GROMOXPATH="$(snapper --csvout -c ${SNAPCONF} get-config |sed -n 's/SUBVOLUME,//p')"
 #retrieve the latest snapshotpath
 #we will copy all from .snapshots/$ID/ to include the info.xml from snapper
-snapper -c ${SNAPCONF} create
+echo "Creating Snapshot of ${GROMOXPATH}"
+/usr/bin/snapper -c ${SNAPCONF} create
 SNAPNUM=$(snapper --csvout -c ${SNAPCONF} list |tail -n1|cut -d, -f3)
 SNAPPATH="${GROMOXPATH}/.snapshots/${SNAPNUM}"
+
+# start services as we now have a snapshot
+/bin/date -Is
+echo "Starting midb/pop3/imap services"
+/usr/bin/systemctl start gromox-midb.service gromox-imap.service gromox-pop3.service
 
 #CREATE BACKUPDIRS
 mkdir -p ${BDIR}/{confs,mysql,{fs/"${SNAPCONF}",}} || echo "[ERROR] could not create Directories in ${BDIR}"
 
 #CONFIGS
-echo "Creating tgz of etc-configs"
+echo "Creating archive of etc-configs"
 cd /
-find etc/ -maxdepth 1 -iregex ".*\(${ETCFLDS}\).*" -exec tar -cJf "${BDIR}/confs/etc.tar.xz" {} +  || echo "[ERROR] config-files"
-ls -l "${BDIR}/confs/etc.tar.xz"
+find etc/ -maxdepth 1 -type d -iregex ".*\(${ETCFLDS}\).*" -exec tar -czf "${BDIR}/confs/etc.tar.gz" {} +  || echo "[ERROR] config-files"
+ls -sh "${BDIR}/confs/etc.tar.gz"
 #MYSQLDUMP
 # shellcheck disable=SC2154
 echo "Creating mysqldump"
 COMMAND="mysqldump --user=${mysql_username} --password=${mysql_password} --databases ${mysql_dbname} ${MYSQLDUMPOPTS}"
 $COMMAND > "${BDIR}/mysql/${mysql_dbname}.sql" || (echo "[ERROR] ${COMMAND//word=*--data/word= --data}")
-ls -l "${BDIR}/mysql/${mysql_dbname}.sql" 
+ls -sh "${BDIR}/mysql/${mysql_dbname}.sql" 
 
 #FSCOPY
 echo "Starting Rsync of ${SNAPPATH}"
 COMMAND="rsync ${RSYNCOPTS} ${SNAPPATH}/ ${BDIR}/fs/${SNAPCONF}"
 time $COMMAND || echo "[ERROR] ${COMMAND}"
 
-snapper -c ${SNAPCONF} delete ${SNAPNUM}
+# cleanup working snapshot
+echo "Deleting snapshot ${SNAPPATH}"
+/usr/bin/snapper -c ${SNAPCONF} delete ${SNAPNUM}
+
+echo
+echo "Data usage:"
+echo "grommunio-admin fs du:"
+/usr/sbin/grommunio-admin fs du
+echo
+echo "Backup directory:"
+/usr/bin/du -hs "${BDIR}"

@@ -170,10 +170,8 @@ grom_empty_trashbin() {
   if [[ $# -eq 1 ]]; then
     if [[ $_grom_users =~ $1 ]]; then
       user="$1"
-      (
-        printf 'emptyfld 0xb of user: %s\n' "${user}"
-        gromox-mbop -u "${user}" emptyfld -R 0xb
-      ) | tee | logger -t grom_empty_trashbin
+      printf 'running emptyfld -R -t 31d 0xb of user: %s\n' "${user}" | tee >(logger -t grom_empty_trashbin)
+      gromox-mbop -u "${user}" emptyfld -R -t 31d 0xb | tee >(logger -t grom_empty_trashbin)
     fi
   fi
 }
@@ -208,7 +206,7 @@ grom_users() {
   fi
   for dom in $doms; do
     grommunio-admin user query username status maildir --format json-structured |
-      jq -r '.[]|select((.username|endswith("'"${dom}"'")) and (.maildir|.!="") and (.status==0))|.username'
+      jq -r '.[]|select((.username|endswith("'"${dom}"'")) and (.maildir|.!="") and ((.status==0) or (.status==4)))|.username'
     #    grommunio-admin user query --format json-structured | \
     #    jq -r '.[]|select(.username|endswith("'"${dom}"'"))|.username'
   done
