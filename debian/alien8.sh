@@ -3,6 +3,8 @@
 # Copyright © 2023 Christopher Bock <christopher@bocki.com>
 # SPDX-License-Identifier: MIT
 
+export LANG=C
+
 echo "Number of Packages: $(dpkg -l |grep '^ii' |wc -l)"
 
 apt-get update >/dev/null
