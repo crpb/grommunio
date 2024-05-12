@@ -41,7 +41,7 @@ date -Is
 echo "Stopping midb/pop3/imap services"
 # stop services to/and cleanup sqlites
 /usr/bin/systemctl stop gromox-midb.service gromox-imap.service gromox-pop3.service
-for d in /var/lib/gromox/user/*/*; do 
+for d in $(grommunio-admin user query maildir |sed '/^$/d'); do 
   /usr/sbin/gromox-mbop -d $d vacuum; 
   /usr/sbin/gromox-mbop -d $d purge-datafiles;
 done
