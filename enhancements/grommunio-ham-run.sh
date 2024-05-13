@@ -34,7 +34,7 @@ SELECT m.message_id,
   ON m.parent_fid = f.folder_id
   JOIN folder_properties fp
   ON fp.folder_id = f.folder_id
-  WHERE fp.propval LIKE '${HAMRUN_FOLDER}'
+  WHERE fp.propval LIKE ''${HAMRUN_FOLDER}''
 -- DON'T LOOK INTO SUBDIRECTORIES
     AND f.parent_id = 9
   """
@@ -58,15 +58,15 @@ SELECT m.message_id,
     echo "${MYSQL_QUERY}" | ${MYSQL_CMD[@]} | while read -r USERNAME MAILDIR ; do
     sqlite3 -readonly -tabs -noheader "${MAILDIR}/exmdb/exchange.sqlite3" "$SQLITE_QUERY" |
       while read -r MESSAGEID MIDSTRING; do
-        echo "Learning spam for user ${USERNAME}" | systemd-cat -t grommunio-spam-run
+        echo "Learning spam for user ${USERNAME}" | systemd-cat -t grommunio-ham-run
         MSGFILE="$MAILDIR/eml/$MIDSTRING"
         if [[ ! -f "$MSGFILE" ]]; then
-          gromox-exm2eml -u "${USERNAME}" "${MESSAGEID}" 2>/dev/null | rspamc learn_hpam | systemd-cat -t grommunio-spam-run
+          gromox-exm2eml -u "${USERNAME}" "${MESSAGEID}" 2>/dev/null | rspamc learn_hpam | systemd-cat -t grommunio-ham-run
         else
-          rspamc learn_ham --header 'Learn-Type: bulk' "$MSGFILE" | systemd-cat -t grommunio-spam-run
+          rspamc learn_ham --header 'Learn-Type: bulk' "$MSGFILE" | systemd-cat -t grommunio-ham-run
         fi
         if [ "${HAMRUN_DELETE}" == "true" ]; then
-          /usr/sbin/gromox-mbop -u "${USERNAME}" delmsg -f 0x17 "${MESSAGEID}" | systemd-cat -t grommunio-spam-run
+          /usr/sbin/gromox-mbop -u "${USERNAME}" delmsg -f 0x17 "${MESSAGEID}" | systemd-cat -t grommunio-ham-run
         fi
       done
       rm -f "${SPAMLIST}"
