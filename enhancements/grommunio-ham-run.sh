@@ -58,10 +58,10 @@ SELECT m.message_id,
     echo "${MYSQL_QUERY}" | ${MYSQL_CMD[@]} | while read -r USERNAME MAILDIR ; do
     sqlite3 -readonly -tabs -noheader "${MAILDIR}/exmdb/exchange.sqlite3" "$SQLITE_QUERY" |
       while read -r MESSAGEID MIDSTRING; do
-        echo "Learning spam for user ${USERNAME}" | systemd-cat -t grommunio-ham-run
+        echo "Learning ham for user ${USERNAME}" | systemd-cat -t grommunio-ham-run
         MSGFILE="$MAILDIR/eml/$MIDSTRING"
         if [[ ! -f "$MSGFILE" ]]; then
-          gromox-exm2eml -u "${USERNAME}" "${MESSAGEID}" 2>/dev/null | rspamc learn_hpam | systemd-cat -t grommunio-ham-run
+          gromox-exm2eml -u "${USERNAME}" "${MESSAGEID}" 2>/dev/null | rspamc learn_ham | systemd-cat -t grommunio-ham-run
         else
           rspamc learn_ham --header 'Learn-Type: bulk' "$MSGFILE" | systemd-cat -t grommunio-ham-run
         fi
@@ -69,12 +69,7 @@ SELECT m.message_id,
           /usr/sbin/gromox-mbop -u "${USERNAME}" delmsg -f 0x17 "${MESSAGEID}" | systemd-cat -t grommunio-ham-run
         fi
       done
-      rm -f "${SPAMLIST}"
     done
   else
     echo "MySQL-Connection couldn't be established, please check your configuration." | systemd-cat -t grommunio-spam-run -p err
   fi
-
-
-
-
