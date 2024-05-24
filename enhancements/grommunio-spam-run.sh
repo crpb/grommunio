@@ -67,7 +67,6 @@ if ${MYSQL_CMD[@]}<<<"exit"&>/dev/null; then
         /usr/sbin/gromox-mbop -u "${USERNAME}" delmsg -f 0x17 "${MESSAGEID}" | systemd-cat -t grommunio-spam-run
       fi
     done
-    rm -f "${SPAMLIST}"
   done
 else
   echo "MySQL-Connection couldn't be established, please check your configuration." | systemd-cat -t grommunio-spam-run -p err
