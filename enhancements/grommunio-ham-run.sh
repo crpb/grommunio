@@ -34,7 +34,7 @@ SELECT m.message_id,
   ON m.parent_fid = f.folder_id
   JOIN folder_properties fp
   ON fp.folder_id = f.folder_id
-  WHERE fp.propval LIKE ''${HAMRUN_FOLDER}''
+  WHERE fp.propval LIKE '"${HAMRUN_FOLDER}"'
 -- DON'T LOOK INTO SUBDIRECTORIES
     AND f.parent_id = 9
   """
