@@ -1,0 +1,67 @@
+#!/bin/sh
+export LANG=C
+umask 0022
+
+# VARS
+instance='z_archiver'        # prefix  z_ so it won't bother us with normal work
+imap2='20143'                # the port for imap
+imaps='20993'                # the post for imap over ssl/tls
+archiveserver='x.x.x.x'      # Put in the IP of your mailstore/whatever
+
+gromoxdir='/etc/gromox'
+archivedir=${gromoxdir}/${instance}
+fileGid="$(grommunio-admin config get mconf.fileGid)"
+fileUid="$(grommunio-admin config get mconf.fileUid)"
+
+
+if [ "$1" = "install" ]; then
+  # Gromox
+  mkdir --parents ${archivedir}
+  cat > ${archivedir}/imap.cfg << EOT
+$(grep -E '^(imap_support_starttls|default_domain|imap_(certificate|private_key)_path)' ${gromoxdir}/imap.cfg)
+imap_listen_port=${imap2}
+listen_ssl_port=${imaps}
+config_file_path=${archivedir}:/etc/gromox
+imap_log_level=5
+EOT
+
+  cat > ${archivedir}/authmgr.cfg << EOT
+auth_backend_selection=allow_all
+EOT
+
+  chown -Rf "${fileUid}:${fileGid}" ${archivedir}
+
+
+  # FirewallD
+  firewall-cmd --permanent --new-zone=${instance}
+  firewall-cmd --permanent --zone=${instance} --add-source=${archiveserver}/32
+  firewall-cmd --permanent --zone=${instance} --add-port=${imap2}/tcp
+  firewall-cmd --permanent --zone=${instance} --add-port=${imaps}/tcp
+  firewall-cmd --reload
+  firewall-cmd --info-zone=${instance}
+
+
+  # SystemD
+  systemctl cat gromox-imap.service |awk '/^ExecStart/ {$0=$0" -c '${archivedir}'/imap.cfg"} 1' > /etc/systemd/system/gromox-imap-${instance}.service
+  systemctl daemon-reload
+  systemctl --now enable gromox-imap-${instance}.service
+
+  return 0
+elif [ "$1" = "uninstall" ]; then
+  systemctl --now disable gromox-imap-${instance}.service
+  rm /etc/systemd/system/gromox-imap-${instance}.service
+  systemctl daemon-reload
+  rm -rfi $archivedir
+  firewall-cmd --permanent --delete-zone=${instance}
+  firewall-cmd --reload
+  return 0
+else
+  cat << EOT
+Possible commands: $0 install|uninstall [127.0.0.1]
+The current settings are:
+  INSTANCENAME=$instance
+  ARCHIVESERVER=$archiveserver
+  IMAP_PORT=$imap2
+  IMAP_SSL_PORT=$imaps
+EOT
+fi

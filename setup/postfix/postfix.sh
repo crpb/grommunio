@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+# check for password-map mechanisms / lmdb on opnsuse
+TABLE='lmdb' ; if postconf -m |grep -q $TABLE; then TABLE='hash' ; fi
 # if no postdefaults file exists use this as a fallback
 POSTDEFAULTS="smtp_sasl_auth_enable=yes
 smtp_sasl_security_options=noanonymous
-smtp_sasl_password_maps=lmdb:/etc/postfix/sasl_passwd
+smtp_sasl_password_maps=${TABLE}:/etc/postfix/sasl_passwd
 smtp_use_tls=yes
 smtpd_tls_mandatory_protocols=\!SSLv2,\!SSLv3,\!TLSv1,\!TLSv1.1
 smtpd_tls_protocols=\!SSLv2,\!SSLv3,\!TLSv1,\!TLSv1.1"
@@ -23,13 +25,12 @@ while read -r line; do
   postconf "$line"
 done <<< "$DEFAULTS"
 fi
-# check for password-map mechanisms / lmdb on opnsuse
-table='lmdb' ; postconf -m |grep -q $table || table='hash'
 postconf relayhost=["${RELAYHOST}"]:submission
 grep -s -qF -- "$RELAYHOST" /etc/postfix/sasl_passwd || \
 cat << EOF >> /etc/postfix/sasl_passwd
 [$RELAYHOST]:submission $RELAYUSER:$RELAYPASS
 EOF
+
 postmap /etc/postfix/sasl_passwd
 # Disable DSN
 printf "Set DSN-Food? (leave empty if not): "
