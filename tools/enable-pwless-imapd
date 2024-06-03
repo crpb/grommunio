@@ -57,11 +57,13 @@ elif [ "$1" = "uninstall" ]; then
   return 0
 else
   cat << EOT
-Possible commands: $0 install|uninstall [127.0.0.1]
+Possible commands: $0 install|uninstall
 The current settings are:
   INSTANCENAME=$instance
   ARCHIVESERVER=$archiveserver
   IMAP_PORT=$imap2
   IMAP_SSL_PORT=$imaps
+
+To change them run: editor $0
 EOT
 fi
