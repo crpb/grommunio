@@ -29,15 +29,16 @@ fi
 if [ -z ${SPAMRUN_DAYS+x} ]; then
   SQLITE_QUERY='select message_id,mid_string from messages where parent_fid=0x17;'
 else
-  SQLITE_QUERY="""
-  SELECT m.message_id,m.mid_string
-  FROM messages m
-  INNER JOIN message_properties mp1
-  ON mp1.message_id = m.message_id
-  AND mp1.proptag = 235274304
-  AND (mp1.propval/10000000-11644473600) < unixepoch('now','-$SPAMRUN_DAYS days')
-  WHERE m.parent_fid = 0x17;
-  """
+read -r -d '' SQLITE_QUERY << EOSQL
+SELECT m.message_id,m.mid_string
+FROM messages m
+INNER JOIN message_properties mp1
+ON mp1.message_id = m.message_id
+AND mp1.proptag = 235274304
+AND (mp1.propval/10000000-11644473600) < unixepoch('now','-$SPAMRUN_DAYS days')
+WHERE m.parent_fid = 0x17;
+EOSQL
+
 fi
 DO_DEL="${SPAMRUN_DELETE:-"false"}"
 # add "-d" to delete junk emails after they have been learned
