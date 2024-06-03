@@ -46,7 +46,7 @@ EOT
   systemctl daemon-reload
   systemctl --now enable gromox-imap-${instance}.service
 
-  return 0
+  exit 0
 elif [ "$1" = "uninstall" ]; then
   systemctl --now disable gromox-imap-${instance}.service
   rm /etc/systemd/system/gromox-imap-${instance}.service
@@ -54,7 +54,7 @@ elif [ "$1" = "uninstall" ]; then
   rm -rfi $archivedir
   firewall-cmd --permanent --delete-zone=${instance}
   firewall-cmd --reload
-  return 0
+  exit 0
 else
   cat << EOT
 Possible commands: $0 install|uninstall
