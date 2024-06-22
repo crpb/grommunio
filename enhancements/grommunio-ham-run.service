@@ -1,0 +1,16 @@
+[Unit]
+Description=Ham classification, training and cleanup run
+
+[Service]
+ProtectSystem=full
+ProtectHome=true
+PrivateDevices=true
+ProtectHostname=true
+ProtectClock=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictRealtime=true
+Type=oneshot
+ExecStart=/usr/local/sbin/grommunio-ham-run.sh

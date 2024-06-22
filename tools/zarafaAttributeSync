@@ -13,7 +13,7 @@ for dom in $doms; do
   # Shared Storages
   for file in $tmp/$dom/*.ldif; do
     user=$(basname $file .ldif)
-    if grep -q 'zarafaSharedStore: 1'; then
+    if grep -q 'zarafaScharedStorageOnly: 1'; then
       grommunio-admin user modify --status 4 $user
     elif grep -q 'zarafaResourceType: room' ; then
       grommunio-admin exmdb $user store set displaytypeex=7

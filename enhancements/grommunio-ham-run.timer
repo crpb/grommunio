@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily ham classification, training and cleanup run
+
+[Timer]
+OnCalendar=daily
+AccuracySec=12h
+Persistent=true
+RandomizedDelaySec=6000
+
+[Install]
+WantedBy=timers.target
