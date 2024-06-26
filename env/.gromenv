@@ -13,7 +13,7 @@ usage_btrfs() {
 }
 
 # Show Disk-Usage of mailboxes
-alias grom_du='grommunio-admin user query username maildir |sed '1,2d' | while read -r user mdir; do printf "%s\t%s\t%s\n" "$mdir" "$user" "$(du -hs ${mdir}|cut -f1)" ; done  |sort -h -k3'
+alias grom_du='grommunio-admin user query username maildir |sed '1,2d' | while read -r user mdir; do printf "%s\t%s\t%s\n" "$(du -hs ${mdir}|cut -f1)" "$user" "$mdir"; done  |sort -h -k1'
 
 # Get Grommunio-Package-Versions
 _grom_versions() {
@@ -161,6 +161,7 @@ _grom_empty_trashbin() {
 
 grom_empty_trashbin() {
   local user msgid
+  TIMESPEC=${TIMESPEC:="31d"}
   _grom_users="${_grom_users:=$(grom_users)}"
   if [[ $# -eq 0 ]]; then
     for user in $_grom_users; do
@@ -170,12 +171,28 @@ grom_empty_trashbin() {
   if [[ $# -eq 1 ]]; then
     if [[ $_grom_users =~ $1 ]]; then
       user="$1"
-      printf 'running emptyfld -R -t 31d 0xb of user: %s\n' "${user}" | tee >(logger -t grom_empty_trashbin)
+      printf 'running emptyfld -R -t 31d 0xb for user: %s\n' "${user}" | tee >(logger -t grom_empty_trashbin)
       gromox-mbop -u "${user}" emptyfld -R -t 31d 0xb | tee >(logger -t grom_empty_trashbin)
     fi
   fi
 }
-complete -F _comp_grom_users grom_empty_trashbin
+grom_nuke_trashbin() {
+  local user msgid
+  _grom_users="${_grom_users:=$(grom_users)}"
+  if [[ $# -eq 0 ]]; then
+    for user in $_grom_users; do
+      grom_empty_trashbin "${user}"
+    done
+  fi
+  if [[ $# -eq 1 ]]; then
+    if [[ $_grom_users =~ $1 ]]; then
+      user="$1"
+      printf 'running emptyfld --nuke-folders 0xb foruser: %s\n' "${user}" | tee >(logger -t grom_nuke_trashbin)
+      gromox-mbop -u "${user}" emptyfld --nuke-folders 0xb | tee >(logger -t grom_nuke_trashbin)
+    fi
+  fi
+}
+complete -F _comp_grom_users grom_empty_trashbin grom_nuke_trashbin
 
 #/usr/libexec/gromox/delmsg -d $maildir -f 0xb ""${MSGID}"
 # Grommunio-Sync Redis-Cache List
@@ -309,7 +326,7 @@ _grom_learn_ham() {
 }
 
 #GetFolderPermissions
-exmdb_get_permissions() {
+_exmdb_get_permissions_LANGSAM() {
   local short folders owner short
   _grom_users="${_grom_users:=$(grom_users)}"
   if [[ $_grom_users =~ $1 ]]; then
@@ -322,9 +339,9 @@ exmdb_get_permissions() {
     done
   fi
 }
-complete -F _comp_grom_users exmdb_get_permissions
+complete -F _comp_grom_users _exmdb_get_permissions_LANGSAM
 
-exmdb_get_permissions_hr() {
+exmdb_get_permissions() {
   local OWNER FID PFLDS FOLDER EXMDB SQLQUERY RET
   if [[ $# -ne 1 ]]; then
     echo "Usage: ${FUNCNAME[0]} username@domain.tld"
@@ -362,15 +379,15 @@ WHERE p.username != 'default';
     fi
   fi
 }
-complete -F _comp_grom_users exmdb_get_permissions_hr
+complete -F _comp_grom_users exmdb_get_permissions
 
-exmdb_get_dom_permissions_hr() {
+exmdb_get_dom_permissions() {
   local OWNER FID PFLDS FOLDER EXMDB SQLQUERY RET
   if [[ $# -ne 1 ]]; then
     echo "Usage: ${FUNCNAME[0]} domain.tld"
     return 1
   fi
-  _grom_domains="${_grom_domains:=$(grommunio-admin domain query domainname | sed 1d)}"
+  _grom_domains="${_grom_domains:=$(grommunio-admin domain query domainname)}"
   # Check for correct Domainname
   if [[ $_grom_domains =~ $1 ]]; then
     OWNER="${1}"
@@ -402,7 +419,7 @@ WHERE p.username != 'default';
     fi
   fi
 }
-complete -F _comp_grom_doms exmdb_get_dom_permissions_hr
+complete -F _comp_grom_doms exmdb_get_dom_permissions
 
 #GetStdFolderRights
 exmdb_get_stdFolders() {

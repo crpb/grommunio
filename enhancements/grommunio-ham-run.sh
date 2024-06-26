@@ -4,6 +4,11 @@
 # Auto Config if not present
 if ! [ -e /etc/gromox/spamrun.cfg ]; then
   cat << EOF > /etc/gromox/spamrun.cfg
+# rspamd might run somewhere else and isn't configured as multi-instance
+# see rspamc(1) for more options
+# RSPAMC_OPTS=( -h a.b.c.d:1234 -P myverysecurepass )
+RSPAMC_OPTS=()
+
 # SPAM #
 # Only scan messages which are older than n days.
 # Default: SPAMRUN_DAYS=7
@@ -21,6 +26,7 @@ HAMRUN_DELETE=false
 EOF
 fi
 
+RSPAMC_OPTS=()
 HAMRUN_FOLDER="NON-JUNK"
 HAMRUN_DELETE=false
 if [ -r /etc/gromox/spamrun.cfg ]; then
@@ -36,7 +42,7 @@ f.folder_id
 FROM messages m
 JOIN folders f
 ON m.parent_fid = f.folder_id
-JOIN folder_properties fp
+sOIN folder_properties fp
 ON fp.folder_id = f.folder_id
 WHERE lower(fp.propval) = lower('${HAMRUN_FOLDER}')
 -- DON'T LOOK INTO SUBDIRECTORIES
@@ -89,9 +95,9 @@ if ${MYSQL_CMD}<<<"exit"&>/dev/null; then
       echo "Learning ham for user ${USERNAME}" | systemd-cat -t grommunio-ham-run
       MSGFILE="$MAILDIR/eml/$MIDSTRING"
       if [[ ! -f "$MSGFILE" ]]; then
-        gromox-exm2eml -u "${USERNAME}" "${MESSAGEID}" 2>/dev/null | rspamc learn_ham | systemd-cat -t grommunio-ham-run
+        gromox-exm2eml -u "${USERNAME}" "${MESSAGEID}" 2>/dev/null | rspamc ${RSPAMC_OPTS[@]} learn_ham | systemd-cat -t grommunio-ham-run
       else
-        rspamc learn_ham --header 'Learn-Type: bulk' "$MSGFILE" | systemd-cat -t grommunio-ham-run
+        rspamc ${RSPAMC_OPTS[@]} learn_ham --header 'Learn-Type: bulk' "$MSGFILE" | systemd-cat -t grommunio-ham-run
       fi
       if [ "${HAMRUN_DELETE}" = "true" ]; then
         gromox-mbop -u "${USERNAME}" delmsg -f "${FOLDERID}"  "${MESSAGEID}" | systemd-cat -t grommunio-ham-run

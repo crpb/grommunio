@@ -4,6 +4,11 @@
 # Auto Config if not present
 if ! [ -e /etc/gromox/spamrun.cfg ]; then
   cat << EOF > /etc/gromox/spamrun.cfg
+# rspamd might run somewhere else and isn't configured as multi-instance
+# see rspamc(1) for more options
+# RSPAMC_OPTS=( -h a.b.c.d:1234 -P myverysecurepass )
+RSPAMC_OPTS=()
+
 # SPAM #
 # Only scan messages which are older than n days.
 # Default: SPAMRUN_DAYS=7
@@ -21,6 +26,7 @@ HAMRUN_DELETE=false
 EOF
 fi
 
+RSPAMC_OPTS=()
 SPAMRUN_DAYS=7
 SPAMRUN_DELETE=false
 if [ -r /etc/gromox/spamrun.cfg ]; then
@@ -93,9 +99,9 @@ if ${MYSQL_CMD}<<<"exit"&>/dev/null; then
       echo "Learning spam for user ${USERNAME}" | systemd-cat -t grommunio-spam-run
       MSGFILE="$MAILDIR/eml/$MIDSTRING"
       if [[ ! -f "$MSGFILE" ]]; then
-        gromox-exm2eml -u "${USERNAME}" "${MESSAGEID}" 2>/dev/null | rspamc learn_spam | systemd-cat -t grommunio-spam-run
+        gromox-exm2eml -u "${USERNAME}" "${MESSAGEID}" 2>/dev/null | rspamc ${RSPAMC_OPTS[@]} learn_spam | systemd-cat -t grommunio-spam-run
       else
-        rspamc learn_spam --header 'Learn-Type: bulk' "$MSGFILE" | systemd-cat -t grommunio-spam-run
+        rspamc learn_spam ${RSPAMC_OPTS[@]} --header 'Learn-Type: bulk' "$MSGFILE" | systemd-cat -t grommunio-spam-run
       fi
       if [ "${DO_DEL}" == "true" ]; then
         /usr/sbin/gromox-mbop -u "${USERNAME}" delmsg -f 0x17 "${MESSAGEID}" | systemd-cat -t grommunio-spam-run

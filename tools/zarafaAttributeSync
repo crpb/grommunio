@@ -1,24 +1,63 @@
 #!/bin/bash
 # vim:ts=2 sts=2 sw=2 expandtab
-set -x
-tmp=$(mktemp -d)
-doms="$(grommunio-admin domain query domainname | sed '/domainname/d')"
-for dom in $doms; do
-  mkdir -p $tmp/$dom
-  users=$(grommunio-admin user query username status maildir --format json-structured |	jq -r '.[]|select((.username|endswith("'"${dom}"'")) and (.maildir|.!="") and ((.status==0) or (.status==4)))|.username';)
-  for usr in $users; do
-    echo $usr
-    grommunio-admin ldap dump $user > $tmp/$dom/$user.ldif
+#set -x
+# Set DEBUG=echo for only showing what would be done.
+DEBUG=
+#TMPD=$(mktemp -d)
+TMPD=/tmp/zarafaAttributeSync; mkdir -p $TMPD
+ONEHOUR=`mktemp`; touch -d "1 hours ago" $ONEHOUR
+cleanup() { $DEBUG rm -rf "$TMPD" "$ONEHOUR" ; }
+#trap cleanup EXIT
+echo -e "Working-Dir: $TMPD"
+DOMS="$(grommunio-admin domain query domainname | sed '/domainname/d')"
+for DOM in $DOMS; do
+  mkdir -p $TMPD/$DOM
+  USERS=$(grommunio-admin user query username status maildir --format json-structured | jq -r '.[]|select((.username|endswith("'"${dom}"'")) and (.maildir|.!="") and ((.status==0) or (.status==4)))|.username';)
+  for USR in $USERS; do
+    if [ "$TMPD/$DOM/$USR.ldif" -ot $ONEHOUR ]; then
+      echo "Creating ldap dump for: $USR"
+      # this might find more than one address otherwise like foo@dom.tld
+      # and moo-foo@dom.tld for search foo@dom.tld
+      LDAPID="$(grommunio-admin ldap search $USR |awk '/ '$USR'/ {print$1}')"
+      grommunio-admin ldap dump "$LDAPID" > $TMPD/$DOM/$USR.ldif
+    else
+      echo "Ldap dump skipped(newer than one hour): $USR"
+    fi
   done
   # Shared Storages
-  for file in $tmp/$dom/*.ldif; do
-    user=$(basname $file .ldif)
-    if grep -q 'zarafaScharedStorageOnly: 1'; then
-      grommunio-admin user modify --status 4 $user
-    elif grep -q 'zarafaResourceType: room' ; then
-      grommunio-admin exmdb $user store set displaytypeex=7
-    elif grep -q 'zarafaResourceType: equipment'; then
-      grommunio-admin exmdb $user store set displaytypeex=8
+  for FILE in $TMPD/$DOM/*.ldif; do
+    USR=$(basename $FILE .ldif)
+    # Mailbox is a shared Store
+    if grep -q -E '^  zarafaSharedStoreOnly: 1$' $FILE; then
+      echo "Setting Mailboxtype as Shared: $USR"
+      $DEBUG grommunio-admin user modify --status 4 $USR |logger -t "${BASH_SOURCE[0]}"
+      if grep -q -E '^  zarafaResourceType: equipment$' $FILE; then
+        echo "Setting Shared Mailbox as Room: $USR"
+        $DEBUG grommunio-admin exmdb $USR store set displaytypeex=7 |logger -t "${BASH_SOURCE[0]}"
+      elif grep -q -E '^  zarafaResourceType: room$' $FILE; then
+        echo "Setting Shared Mailbox as Equipment: $USR"
+        $DEBUG grommunio-admin exmdb $USR store set displaytypeex=8 |logger -t "${BASH_SOURCE[0]}"
+        #else
+        #  echo "Setting Shared Mailbox as User: $USR"
+        #  $DEBUG grommunio-admin exmdb $USR store set displaytypeex=0 |logger -t "${BASH_SOURCE[0]}"
+      fi
+    elif grep -q -E '^  zarafaSharedStoreOnly: 0$' $FILE; then
+      # Mailbox isn't a shared Store or it was changed back?
+      #if (($(grommunio-admin exmdb $USR store get displaytypeex |awk '{print$2}'))); then
+      echo "Setting Mailboxtype as User: $USR"
+      $DEBUG grommunio-admin exmdb $USR store set displaytypeex=0 |logger -t "${BASH_SOURCE[0]}"
+      $DEBUG grommunio-admin user modify --status 0 $USR |logger -t "${BASH_SOURCE[0]}"
     fi
-  done 
+    #fi
+    # SendAsS
+    echo "SendAs Privileges for Mailbox $USR:"
+    for DN in $(awk '/  zarafaSendAsPrivilege:/{flag=1; next} !/  -/{flag=0} flag' $FILE |sed 's/  - /DN: /g'); do
+      echo MUH
+      echo -n $(printf '%q' "$DN")
+      #grep -l -F "${DN:q}" $TMPD/$DOM/*.ldif
+      #LDIF=$(grep -l -F "${DN:q}" $TMPD/$DOM/*.ldif)
+      #echo "$LDIF"
+      #awk '/  mail: /{print$2}' "$LDIF"
+    done
+  done
 done

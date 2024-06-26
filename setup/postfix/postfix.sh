@@ -33,9 +33,9 @@ EOF
 
 postmap /etc/postfix/sasl_passwd
 # Disable DSN
-printf "Set DSN-Food? (leave empty if not): "
+printf "Set DSN-Food? Only \"yes\" is accepted: "
 read -r accept
-if [ ${#accept} -ne 0 ]; then
+if [ "${#accept}" = "yes" ]; then
 postconf smtpd_discard_ehlo_keyword_address_maps=cidr:/etc/postfix/esmtp_access
 cat << EOF > /etc/postfix/esmtp_access
 # Allow DSN requests from local subnet only
