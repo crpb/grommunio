@@ -78,7 +78,7 @@ CONFIG_FILE=$(mktemp)
 cat <<CONFFILE >"${CONFIG_FILE}"
 [client]
 user=${MYSQL_USERNAME}
-password=${MYSQL_PASSWORD}
+password='${MYSQL_PASSWORD}'
 host=${MYSQL_HOST}
 database=${MYSQL_DBNAME}
 CONFFILE
