@@ -6,7 +6,7 @@ umask 0022
 instance='z_archiver'        # prefix  z_ so it won't bother us with normal work
 imap2='20143'                # the port for imap
 imaps='20993'                # the post for imap over ssl/tls
-archiveserver='x.x.x.x'      # Put in the IP of your mailstore/whatever
+archiveserver='192.168.100.3'      # Put in the IP of your mailstore/whatever
 
 gromoxdir='/etc/gromox'
 archivedir=${gromoxdir}/${instance}
@@ -43,6 +43,7 @@ EOT
 
   # SystemD
   systemctl cat gromox-imap.service |awk '/^ExecStart/ {$0=$0" -c '${archivedir}'/imap.cfg"} 1' > /etc/systemd/system/gromox-imap-${instance}.service
+  sed -i '/\[Service\]/aUser=gromox\nGroup=gromox' /etc/systemd/system/gromox-imap-${instance}.service 
   systemctl daemon-reload
   systemctl --now enable gromox-imap-${instance}.service
 
