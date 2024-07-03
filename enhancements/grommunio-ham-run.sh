@@ -42,7 +42,7 @@ f.folder_id
 FROM messages m
 JOIN folders f
 ON m.parent_fid = f.folder_id
-sOIN folder_properties fp
+JOIN folder_properties fp
 ON fp.folder_id = f.folder_id
 WHERE lower(fp.propval) = lower('${HAMRUN_FOLDER}')
 -- DON'T LOOK INTO SUBDIRECTORIES
