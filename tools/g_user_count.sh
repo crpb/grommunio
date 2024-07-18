@@ -3,7 +3,7 @@
 # (c) 2023 by Walter Hofstaedtler and cb
 #
 # Authors: Walter Hofstaedtler <walter@hofstaedtler.com>
-#          cb <christopher@bocki.com>
+#          Christopher Bock <christopher@bocki.com>
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
@@ -32,7 +32,7 @@
 #
 #
 RED="\033[0;31m"; YEL="\033[0;33m"; GRN="\033[0;32m"; CYA="\033[0;36m"; NORM="\033[0m"
-DO_HELP=0; DO_USERS=0; DO_SUSPEND=0; DO_SHARED=0; DO_GROUPS=0
+DO_HELP=0; DO_USERS=0; DO_SUSPEND=0; DO_SHARED=0; DO_GROUPS=0; DO_CONTACTS=0
 #
 echo
 echo -e "${CYA}Count grommunio Users / Mailboxes ${NORM}"
@@ -50,10 +50,13 @@ while getopts ":ausmgh" opt; do
             ;;
         g)  DO_GROUPS=1
             ;;
+        c)  DO_CONTACTS=1
+            ;;
         a)  DO_USERS=1
             DO_SUSPEND=1
             DO_SHARED=1
             DO_GROUPS=1
+            DO_CONTACTS=1
             ;;
         h)  DO_HELP=1
             ;;
@@ -70,7 +73,8 @@ if [ "$DO_HELP" -eq 1 ]; then
     echo -e " -s  list suspended users / mailboxes"
     echo -e " -m  list shared mailboxes"
     echo -e " -g  list groups / distribution lists"
-    echo -e " -a  show all 4 lists"
+    echo -e " -c  list contacts"
+    echo -e " -a  show all 5 lists"
     echo -e " -h  show this help message"
     echo
     exit 1
@@ -81,6 +85,7 @@ echo
 GADMINRES="$(grommunio-admin user query username maildir status)"
 USERS="$(grep '/var/lib/' <<< "$GADMINRES" | grep -c 0/active)"
 SUSPENDED="$(grep '/var/lib/' <<< "$GADMINRES" | grep -c 1/suspended)"
+CONTACTS="$(grep -v '/var/lib/' <<< "$GADMINRES" | grep -c 5/contact)"
 SHARED_MB="$(grep '/var/lib/' <<< "$GADMINRES" | grep -c 4/shared)"
 DIST_LIST="$(grep -v '/var/lib/' <<< "$GADMINRES" | grep -c "@")"
 TOTAL_ADMIN="$(grep '/var/lib/' <<< "$GADMINRES" | grep -c "@")"
@@ -120,12 +125,14 @@ printf -v T_U "% 4d" "$TOTAL_USERS"
 printf -v D_L "% 4d" "$DIST_LIST"
 printf -v S_M "% 4d" "$SHARED_MB"
 printf -v T_C "% 4d" "$TOTAL_COUNT"
+printf -v O_C "% 4d" "$CONTACTS"
 #
 # Print summary
 echo -e "${GRN}${T_U}${NORM} users / mailboxes to be ${GRN}licensed${NORM}, includes ${SUSPENDED} suspended users, rooms and equipment,"
 echo -e "${RED}${S_M}${NORM} shared mailboxes (free),"
 echo -e "${YEL}${D_L}${NORM} groups / distribution lists (free),"
 echo -e "${CYA}${T_C}${NORM} mailboxes total."
+echo -e "${GRN}${O_C}${NORM} contacts."
 #
 if [ "$TOTAL_ADMIN" -ne "$TOTAL_COUNT" ]; then
     echo -e "${RED}ERROR:${NORM} TOTAL count do ${RED}*NOT*${NORM} match grommunio-admin user count!${NORM}, grommunio-admin: ${RED}${TOTAL_ADMIN}${NORM}, my count: ${YEL}${TOTAL_COUNT}${NORM}!"
