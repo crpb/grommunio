@@ -105,5 +105,5 @@ if ${MYSQL_CMD}<<<"exit"&>/dev/null; then
     done
   done
 else
-  echo "MySQL-Connection couldn't be established, please check your configuration." | systemd-cat -t grommunio-spam-run -p err
+  echo "MySQL-Connection couldn't be established, please check your configuration." | systemd-cat -t grommunio-ham-run -p err
 fi

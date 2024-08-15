@@ -37,6 +37,8 @@ EOT
   firewall-cmd --permanent --zone=${instance} --add-source=${archiveserver}/32
   firewall-cmd --permanent --zone=${instance} --add-port=${imap2}/tcp
   firewall-cmd --permanent --zone=${instance} --add-port=${imaps}/tcp
+  firewall-cmd --permanent --zone=${instance} --add-port=443/tcp
+  firewall-cmd --permanent --zone=${instance} --add-port=8443/tcp
   firewall-cmd --reload
   firewall-cmd --info-zone=${instance}
 
