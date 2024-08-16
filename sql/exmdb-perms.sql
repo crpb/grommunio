@@ -40,6 +40,6 @@ SELECT p.folder_id as folder_int,
   FROM permissions p
   JOIN folderlist f
     ON p.folder_id = f.folder_id
- INNER JOIN temp.perms x
+  LEFT JOIN temp.perms x
     ON x.perm = p.permission
 ;
