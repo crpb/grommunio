@@ -7,7 +7,7 @@ fi
 mysql grommunio --skip-column-names \
  --execute="$QUERY" |
   while read -r username maildir; do
-    printf '{ "username": "%s", "maildir": "%s", "permissions": %s }' \
+    printf '{ "username": "%s", "maildir": "%s", "permissions": %s }\n\n' \
       "$username" "$maildir" \
       "$(sqlite3 -json $maildir/exmdb/exchange.sqlite3 < /root/scripts/sql/exmdb-perms.sql)";
     done

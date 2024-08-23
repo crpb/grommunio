@@ -34,6 +34,5 @@ test -s ~/.alias && . ~/.alias || true
 test -s ~/.gromenv && . ~/.gromenv || true
 
 for file in ~/.local/bash-completion/*; do test -f "$file" && . "$file"; done
-alias snapconfs='snapper list-configs --columns config |tail -n +3'
 
 export SYSTEMD_PAGER=

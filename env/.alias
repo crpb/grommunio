@@ -15,7 +15,7 @@ alias systemctl="systemctl --no-pager"
 alias zypup='zypp-refresh ; zypper --verbose up && zypper ps --print "systemctl status %s" && rm -f /var/lib/check_mk_agent/cache/plugins_mk_zypper.cache'
 alias fail2list='fail2ban-client status |sed -n "s/,//g;s/.*Jail list:[[:space:]]//p"|xargs -n 1 fail2ban-client status |grep -E "^Status|Banned IP list"'
 
-if test -n $(command -vp snapper); then
+if test -n "$(command -vp snapper)"; then
   alias snapconfs='snapper list-configs --columns config |tail -n +3'
   __delete_root_snapshots() { snapper -c root delete 0-$(snapper -c root ls |awk 'END{print $1}') ; }
 fi

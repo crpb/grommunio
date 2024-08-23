@@ -15,7 +15,7 @@ _get_rpm_url() {
   if [[ "$#" -eq 1 ]]; then
     local repo subf flst
     repo="https://download.grommunio.com" #/community/openSUSE_Leap_15.4/
-    subf="community/openSUSE_Leap_15.4/"
+    subf="community/openSUSE_Leap_15.5/"
     flst=$(wget -q -qO- "$repo/$subf" |grep -Po '(?<=href=")[^"]*(?=")' |cut -d/ -f4-)
     arch=$(uname -m)
     echo "$repo/$subf/$(echo "$(grep -E "$1-[0-9]" <<< "$flst")"|grep -E "$arch|noarch" |tail -n1)"

@@ -110,7 +110,6 @@ NGINX
 -----
 Additional nginx-modules
 ------------------------
-not maintained in Debian/Ubuntu
 
 take a look at alien8.sh_
 
@@ -119,11 +118,15 @@ take a look at alien8.sh_
 ------------------------
 `host traffic status`_
 ------------------------
+- not maintained in Debian/Ubuntu
 
 .. _`host traffic status`: https://github.com/vozlt/nginx-module-vts
 
 -------
 brotli_
 -------
+The packages_ for brotli are available since Bookworm and will be installed automatically by grommunio-setup_
 
 .. _brotli: https://github.com/google/ngx_brotli
+.. _packages: https://qa.debian.org/cgi-bin/madison.cgi?package=libnginx-mod-http-brotli-filter+libnginx-mod-http-brotli-static&table=debian&a=&c=&s=#
+.. _grommunio-setup: https://github.com/eryx12o45/grommunio-setup

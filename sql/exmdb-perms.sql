@@ -42,7 +42,7 @@ AS SELECT distinct(p.folder_id),
 ;
 -- LOOKUP PERMISSIONS
 CREATE VIEW IF NOT EXISTS temp.folderpermissions
-AS SELECT p.folder_id as folder_int,
+AS SELECT p.folder_id as folder_id,
           f.parent_id,
           (SELECT printf('0x%x',p.folder_id)) AS folder_hex,
           (SELECT printf('0x%x',f.parent_id)) AS parent_hex,
