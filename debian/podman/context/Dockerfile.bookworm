@@ -6,7 +6,7 @@ FROM debian:bookworm-slim
 ENV DEBIAN_FRONTEND noninteractive
 
 # Add deb-src repositories
-RUN sed -i '/^deb/{p;s/^deb/deb-src/g;}' /etc/apt/sources.list
+RUN sed -i '/^Types: / s/deb/deb deb-src/g' /etc/apt/sources.list.d/debian.sources
 
 # Update apps on the base image
 RUN apt-get update --yes --quiet && \
@@ -26,8 +26,8 @@ RUN apt-get build-dep libhx32 libhx-dev --yes --quiet
 # Install libhx >= 4
 WORKDIR /usr/src
 RUN wget --no-check-certificate \
-  https://codeberg.org/jengelh/libhx/archive/v4.12.tar.gz -O libHX-4.12.tar.gz \
-    && tar xzf libHX-4.12.tar.gz \
+  https://codeberg.org/jengelh/libhx/archive/v4.23.tar.gz -O libHX.tar.gz \
+    && tar xzf libHX.tar.gz \
     && cd libhx \
     && ./qconf \
     && make \

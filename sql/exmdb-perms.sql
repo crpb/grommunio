@@ -31,15 +31,17 @@ AS SELECT
  ORDER BY p.folder_id
 ;
 -- LOOKUP PERMISSIONS
-SELECT p.folder_id as folder_int,
-       (SELECT printf('0x%x',p.folder_id)) AS folder_hex,
-       f.propval AS folder_name,
-       p.username,
-       (SELECT printf('0x%x',p.permission)) AS permission_hex,
-       x.name as permission
-  FROM permissions p
-  JOIN folderlist f
-    ON p.folder_id = f.folder_id
-  LEFT JOIN temp.perms x
-    ON x.perm = p.permission
+  SELECT p.folder_id as folder_int,
+         (SELECT printf('0x%x',p.folder_id)) AS folder_hex,
+         f.propval AS folder_name,
+         p.username,
+         (SELECT printf('0x%x',p.permission)) AS permission_hex,
+         x.name as permission
+    FROM permissions p
+    JOIN folderlist f
+      ON p.folder_id = f.folder_id
+    LEFT JOIN temp.perms x
+      ON x.perm = p.permission
+ORDER BY p.folder_id ASC,
+         p.username ASC
 ;
