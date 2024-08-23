@@ -89,7 +89,7 @@ trap cleanup EXIT
 MYSQL_CMD="mysql --defaults-file=${CONFIG_FILE} ${MYSQL_PARAMS}"
 # shellcheck disable=SC2068
 if ${MYSQL_CMD}<<<"exit"&>/dev/null; then
-  ${MYSQL_CMD} <<< "${MYSQL_QUERY}" | while read -r USERNAME MAILDIR; do
+  ${MYSQL_CMD} --execute "${MYSQL_QUERY}" | while read -r USERNAME MAILDIR; do
   sqlite3 -readonly -noheader "${MAILDIR}/exmdb/exchange.sqlite3" "$SQLITE_QUERY" |
     while IFS='|' read -r MESSAGEID MIDSTRING FOLDERID; do
       echo "Learning ham for user ${USERNAME}" | systemd-cat -t grommunio-ham-run
@@ -105,5 +105,5 @@ if ${MYSQL_CMD}<<<"exit"&>/dev/null; then
     done
   done
 else
-  echo "MySQL-Connection couldn't be established, please check your configuration." | systemd-cat -t grommunio-ham-run -p err
+  echo "MySQL-Connection couldn't be established, please check your configuration." | systemd-cat -t grommunio-spam-run -p err
 fi

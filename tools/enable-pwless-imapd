@@ -6,7 +6,7 @@ umask 0022
 instance='z_archiver'        # prefix  z_ so it won't bother us with normal work
 imap2='20143'                # the port for imap
 imaps='20993'                # the post for imap over ssl/tls
-archiveserver='192.168.100.3'      # Put in the IP of your mailstore/whatever
+archiveserver=${ARCHIVEIP:=127.0.0.1}      # Put in the IP of your mailstore/whatever
 
 gromoxdir='/etc/gromox'
 archivedir=${gromoxdir}/${instance}
@@ -15,6 +15,14 @@ fileUid="$(grommunio-admin config get mconf.fileUid)"
 
 
 if [ "$1" = "install" ]; then
+  cat << EON
+Using the following settings:
+  Remote-IP: $archiverver
+  IMAP2-Port: $imap2
+  IMAPS-Port: $imaps
+
+EON
+    
   # Gromox
   mkdir --parents ${archivedir}
   cat > ${archivedir}/imap.cfg << EOT
@@ -33,15 +41,14 @@ EOT
 
 
   # FirewallD
-  firewall-cmd --permanent --new-zone=${instance}
-  firewall-cmd --permanent --zone=${instance} --add-source=${archiveserver}/32
-  firewall-cmd --permanent --zone=${instance} --add-port=${imap2}/tcp
-  firewall-cmd --permanent --zone=${instance} --add-port=${imaps}/tcp
-  firewall-cmd --permanent --zone=${instance} --add-port=443/tcp
-  firewall-cmd --permanent --zone=${instance} --add-port=8443/tcp
-  firewall-cmd --reload
+  firewall-cmd --quiet --permanent --new-zone=${instance}
+  firewall-cmd --quiet --permanent --zone=${instance} --add-source=${archiveserver}/32
+  firewall-cmd --quiet --permanent --zone=${instance} --add-port=${imap2}/tcp
+  firewall-cmd --quiet --permanent --zone=${instance} --add-port=${imaps}/tcp
+  firewall-cmd --quiet --permanent --zone=${instance} --add-port=443/tcp
+  firewall-cmd --quiet --permanent --zone=${instance} --add-port=8443/tcp
+  firewall-cmd --quiet --reload
   firewall-cmd --info-zone=${instance}
-
 
   # SystemD
   systemctl cat gromox-imap.service |awk '/^ExecStart/ {$0=$0" -c '${archivedir}'/imap.cfg"} 1' > /etc/systemd/system/gromox-imap-${instance}.service
@@ -66,6 +73,10 @@ The current settings are:
   ARCHIVESERVER=$archiveserver
   IMAP_PORT=$imap2
   IMAP_SSL_PORT=$imaps
+
+If you only want to change the remote IP-Address:
+  export ARCHIVEIP=1.2.3.4
+  $0 install
 
 To change them run: editor $0
 EOT

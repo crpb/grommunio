@@ -91,3 +91,4 @@ echo "grommunio-admin fs du:"
 echo
 echo "Backup directory:"
 /usr/bin/du -hs "${BDIR}"
+date -Is
