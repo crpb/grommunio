@@ -9,6 +9,9 @@ if ! [ -e /etc/gromox/spamrun.cfg ]; then
 # RSPAMC_OPTS=( -h a.b.c.d:1234 -P myverysecurepass )
 RSPAMC_OPTS=()
 
+# Use soft-delete with gromox-mbop delmsg? 
+SOFT_DELETE=true
+
 # SPAM #
 # Only scan messages which are older than n days.
 # Default: SPAMRUN_DAYS=7
@@ -18,8 +21,8 @@ SPAMRUN_DAYS=7
 SPAMRUN_DELETE=false
 
 # HAM #
-# Default: HAMRUN_FOLDER=NON-JUNK
-HAMRUN_FOLDER=NON-JUNK
+# Default: HAMRUN_FOLDER=TRAIN-HAM
+HAMRUN_FOLDER=TRAIN-HAM
 # Delete *copied* Mails which should be learned as HAM?
 # Default: HAMRUN_DELETE=false
 HAMRUN_DELETE=false
@@ -46,11 +49,10 @@ WHERE m.parent_fid = 0x17;
 EOSQL
 
 fi
-DO_DEL="${SPAMRUN_DELETE:-"false"}"
 # add "-d" to delete junk emails after they have been learned
 if [ "$1" = "-d" ]
 then
-  DO_DEL=true
+  SPAMRUN_DELETE=true
 fi
 
 MYSQL_CFG="/etc/gromox/mysql_adaptor.cfg"
@@ -90,21 +92,32 @@ CONFFILE
 cleanup() { rm -f "$CONFIG_FILE" ; }
 trap cleanup EXIT
 
+MBOP_OPTS=()
+if [ $SOFT_DELETE = "true" ]; then
+  MBOP_OPTS=(--soft)
+fi
+
+MBOP_CMD="$(command -v gromox-mbop)"
 MYSQL_CMD="mysql --defaults-file=${CONFIG_FILE} ${MYSQL_PARAMS}"
 # shellcheck disable=SC2068
 if ${MYSQL_CMD}<<<"exit"&>/dev/null; then
   ${MYSQL_CMD} --execute "${MYSQL_QUERY}" | while read -r USERNAME MAILDIR; do
-  sqlite3 -readonly -tabs -noheader "${MAILDIR}/exmdb/exchange.sqlite3" "$SQLITE_QUERY" |
+  sqlite3 -tabs -noheader "${MAILDIR}/exmdb/exchange.sqlite3" "$SQLITE_QUERY" |
     while read -r MESSAGEID MIDSTRING; do
-      echo "Learning spam for user ${USERNAME}" | systemd-cat -t grommunio-spam-run
+      MBOP_CMD="$(command -v gromox-mbop)"
+      MBOP_CMD="$MBOP_CMD -u "$USERNAME" delmsg"
+      if [ $SOFT_DELETE = "true" ]; then
+        MBOP_CMD="$MBOP_CMD --soft"
+      fi
+      echo "Learning spam for user ${USERNAME}" | systemd-cat -t grommunio-spam-run -p info
       MSGFILE="$MAILDIR/eml/$MIDSTRING"
       if [[ ! -f "$MSGFILE" ]]; then
-        gromox-exm2eml -u "${USERNAME}" "${MESSAGEID}" 2>/dev/null | rspamc ${RSPAMC_OPTS[@]} learn_spam | systemd-cat -t grommunio-spam-run
+        gromox-exm2eml -u "${USERNAME}" "${MESSAGEID}" 2>/dev/null | rspamc ${RSPAMC_OPTS[@]} learn_spam | systemd-cat -t grommunio-spam-run -p debug
       else
-        rspamc learn_spam ${RSPAMC_OPTS[@]} --header 'Learn-Type: bulk' "$MSGFILE" | systemd-cat -t grommunio-spam-run
+        rspamc learn_spam ${RSPAMC_OPTS[@]} --header 'Learn-Type: bulk' "$MSGFILE" | systemd-cat -t grommunio-spam-run -p debug
       fi
-      if [ "${DO_DEL}" == "true" ]; then
-        /usr/sbin/gromox-mbop -u "${USERNAME}" delmsg -f 0x17 "${MESSAGEID}" | systemd-cat -t grommunio-spam-run
+      if [ "${SPAMRUN_DELETE}" = "true" ]; then
+        $MBOP_CMD -u "${USERNAME}" delmsg ${MBOP_OPTS[@]} -f 0x17 "${MESSAGEID}" | systemd-cat -t grommunio-spam-run -p notice
       fi
     done
   done

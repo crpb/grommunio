@@ -9,6 +9,9 @@ if ! [ -e /etc/gromox/spamrun.cfg ]; then
 # RSPAMC_OPTS=( -h a.b.c.d:1234 -P myverysecurepass )
 RSPAMC_OPTS=()
 
+# Use soft-delete with gromox-mbop delmsg? 
+SOFT_DELETE=true
+
 # SPAM #
 # Only scan messages which are older than n days.
 # Default: SPAMRUN_DAYS=7
@@ -18,8 +21,8 @@ SPAMRUN_DAYS=7
 SPAMRUN_DELETE=false
 
 # HAM #
-# Default: HAMRUN_FOLDER=NON-JUNK
-HAMRUN_FOLDER=NON-JUNK
+# Default: HAMRUN_FOLDER=TRAIN-HAM
+HAMRUN_FOLDER=TRAIN-HAM
 # Delete *copied* Mails which should be learned as HAM?
 # Default: HAMRUN_DELETE=false
 HAMRUN_DELETE=false
@@ -27,7 +30,7 @@ EOF
 fi
 
 RSPAMC_OPTS=()
-HAMRUN_FOLDER="NON-JUNK"
+HAMRUN_FOLDER="TRAIN-HAM"
 HAMRUN_DELETE=false
 if [ -r /etc/gromox/spamrun.cfg ]; then
   . /etc/gromox/spamrun.cfg
@@ -86,24 +89,30 @@ CONFFILE
 cleanup() { rm -f "$CONFIG_FILE" ; }
 trap cleanup EXIT
 
+MBOP_OPTS=()
+if [ $SOFT_DELETE = "true" ]; then
+  MBOP_OPTS=(--soft)
+fi
+
+MBOP_CMD="$(command -v gromox-mbop)"
 MYSQL_CMD="mysql --defaults-file=${CONFIG_FILE} ${MYSQL_PARAMS}"
 # shellcheck disable=SC2068
 if ${MYSQL_CMD}<<<"exit"&>/dev/null; then
   ${MYSQL_CMD} --execute "${MYSQL_QUERY}" | while read -r USERNAME MAILDIR; do
-  sqlite3 -readonly -noheader "${MAILDIR}/exmdb/exchange.sqlite3" "$SQLITE_QUERY" |
+  sqlite3 -noheader "${MAILDIR}/exmdb/exchange.sqlite3" "$SQLITE_QUERY" |
     while IFS='|' read -r MESSAGEID MIDSTRING FOLDERID; do
-      echo "Learning ham for user ${USERNAME}" | systemd-cat -t grommunio-ham-run
+      echo "Learning ham for user ${USERNAME}" | systemd-cat -t grommunio-ham-run -p info
       MSGFILE="$MAILDIR/eml/$MIDSTRING"
       if [[ ! -f "$MSGFILE" ]]; then
-        gromox-exm2eml -u "${USERNAME}" "${MESSAGEID}" 2>/dev/null | rspamc ${RSPAMC_OPTS[@]} learn_ham | systemd-cat -t grommunio-ham-run
+        gromox-exm2eml -u "${USERNAME}" "${MESSAGEID}" 2>/dev/null | rspamc ${RSPAMC_OPTS[@]} learn_ham | systemd-cat -t grommunio-ham-run -p debug
       else
-        rspamc ${RSPAMC_OPTS[@]} learn_ham --header 'Learn-Type: bulk' "$MSGFILE" | systemd-cat -t grommunio-ham-run
+        rspamc ${RSPAMC_OPTS[@]} learn_ham --header 'Learn-Type: bulk' "$MSGFILE" | systemd-cat -t grommunio-ham-run -p debug
       fi
       if [ "${HAMRUN_DELETE}" = "true" ]; then
-        gromox-mbop -u "${USERNAME}" delmsg -f "${FOLDERID}"  "${MESSAGEID}" | systemd-cat -t grommunio-ham-run
+        $MBOP_CMD -u "${USERNAME}" delmsg ${MBOP_OPTS[@]} "${FOLDERID}" "${MESSAGEID}" | systemd-cat -t grommunio-ham-run -p notice 
       fi
     done
   done
 else
-  echo "MySQL-Connection couldn't be established, please check your configuration." | systemd-cat -t grommunio-spam-run -p err
+  echo "MySQL-Connection couldn't be established, please check your configuration." | systemd-cat -t grommunio-ham-run -p err
 fi
