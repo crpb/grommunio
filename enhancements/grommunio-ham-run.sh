@@ -109,7 +109,7 @@ if ${MYSQL_CMD}<<<"exit"&>/dev/null; then
         rspamc ${RSPAMC_OPTS[@]} learn_ham --header 'Learn-Type: bulk' "$MSGFILE" | systemd-cat -t grommunio-ham-run -p debug
       fi
       if [ "${HAMRUN_DELETE}" = "true" ]; then
-        $MBOP_CMD -u "${USERNAME}" delmsg ${MBOP_OPTS[@]} "${FOLDERID}" "${MESSAGEID}" | systemd-cat -t grommunio-ham-run -p notice 
+        $MBOP_CMD -u "${USERNAME}" delmsg ${MBOP_OPTS[@]} -f "${FOLDERID}" "${MESSAGEID}" | systemd-cat -t grommunio-ham-run -p notice 
       fi
     done
   done
