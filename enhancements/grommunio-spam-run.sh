@@ -97,7 +97,6 @@ if [ $SOFT_DELETE = "true" ]; then
   MBOP_OPTS=(--soft)
 fi
 
-MBOP_CMD="$(command -v gromox-mbop)"
 MYSQL_CMD="mysql --defaults-file=${CONFIG_FILE} ${MYSQL_PARAMS}"
 # shellcheck disable=SC2068
 if ${MYSQL_CMD}<<<"exit"&>/dev/null; then
@@ -117,7 +116,7 @@ if ${MYSQL_CMD}<<<"exit"&>/dev/null; then
         rspamc learn_spam ${RSPAMC_OPTS[@]} --header 'Learn-Type: bulk' "$MSGFILE" | systemd-cat -t grommunio-spam-run -p debug
       fi
       if [ "${SPAMRUN_DELETE}" = "true" ]; then
-        $MBOP_CMD -u "${USERNAME}" delmsg ${MBOP_OPTS[@]} -f 0x17 "${MESSAGEID}" | systemd-cat -t grommunio-spam-run -p notice
+        $MBOP_CMD -f 0x17 "${MESSAGEID}" | systemd-cat -t grommunio-spam-run -p notice
       fi
     done
   done
