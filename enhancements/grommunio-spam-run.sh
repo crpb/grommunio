@@ -45,7 +45,10 @@ INNER JOIN message_properties mp1
 ON mp1.message_id = m.message_id
 AND mp1.proptag = 235274304
 AND (mp1.propval/10000000-11644473600) < unixepoch('now','-$SPAMRUN_DAYS days')
+-- DON'T LOOK INTO SUBDIRECTORIES
 WHERE m.parent_fid = 0x17;
+-- DON'T GET SOFTDELETED
+AND m.is_deleted = 0
 EOSQL
 
 fi

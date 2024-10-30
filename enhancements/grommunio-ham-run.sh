@@ -47,9 +47,12 @@ JOIN folders f
 ON m.parent_fid = f.folder_id
 JOIN folder_properties fp
 ON fp.folder_id = f.folder_id
+-- SELECT TRAINFOLDER
 WHERE lower(fp.propval) = lower('${HAMRUN_FOLDER}')
 -- DON'T LOOK INTO SUBDIRECTORIES
 AND f.parent_id = 9
+-- DON'T GET SOFTDELETED
+AND m.is_deleted = 0
 EOSQL
 
 MYSQL_CFG="/etc/gromox/mysql_adaptor.cfg"
@@ -114,6 +117,9 @@ if ${MYSQL_CMD}<<<"exit"&>/dev/null; then
       fi
       if [ "${HAMRUN_DELETE}" = "true" ]; then
         $MBOP_CMD -f "${FOLDERID}" "${MESSAGEID}" | systemd-cat -t grommunio-ham-run -p notice 
+      else
+        # At least mark it as read if we don't delete it.
+        sqlite3 "${MAILDIR}/exmdb/exchange.sqlite3" "UPDATE messages SET read_state=1 WHERE message_id=$MESSAGEID;"
       fi
     done
   done
