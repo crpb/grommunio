@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS "temp"."perms" (
   "perm"  INTEGER UNIQUE,
   "name"  TEXT
 );
-INSERT OR REPLACE INTO perms("perm","name") VALUES
+INSERT OR REPLACE INTO temp.perms("perm","name") VALUES
 ( 1,'redany'),
 ( 2,'create'),
 ( 4,'sendas'),
@@ -17,7 +17,16 @@ INSERT OR REPLACE INTO perms("perm","name") VALUES
 ( 1024,'foldervisible'),
 ( 2048,'freebusysimple'),
 ( 4096,'freebusydetailed'),
-( 8192,'storeowner')
+( 8192,'storeowner'),
+( 1025,'reviewer:readany,foldervisible'),
+( 1026,'contributor:create,foldervisible'),
+( 1043,'noneditingauthor:readany,create,deleteowned,foldervisible'),
+( 1051,'author:readany,create,editowned,deleteowned,foldervisible'),
+( 1147,'editor:readany,create,editowned,deleteowned,editany,deleteany,foldervisible'),
+( 1179,'publishingauthor:readany,create,editowned,deleteowned,createsubfolder,foldervisible'),
+( 1275,'publishingeditor:readany,create,editowned,deleteowned,editany,deleteany,createsubfolder,foldervisible'),
+( 7195,'calendar-author:readany,create,editowned,deleteowned,foldervisible'),
+( 7323,'calendar-publishingauthor:readany,create,editowned,deleteowned,createsubfolder,foldervisible')
 ;
 -- FOLDER LOOKUP VIEW VIA FOLDERS INCLUDING PARENT
 CREATE VIEW IF NOT EXISTS temp.folderlist
@@ -49,6 +58,7 @@ AS SELECT p.folder_id as folder_id,
           f.propval AS folder_name,
           p.username,
           x.name as permission,
+          p.permission AS permission_dec,
           (SELECT printf('0x%x',p.permission)) AS permission_hex
     FROM  permissions p
     JOIN  folderlist f

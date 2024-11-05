@@ -28,3 +28,9 @@ foreach ($u in $AllUsers){
 ``` bash
 sed -i 's/en_US.UTF-8/de_DE.UTF-8/g' /etc/grommunio-web/config.php
 ```
+
+### LDAP only active accounts?
+`/etc/gromox/ldap_adaptor.cfg`
+```
+ldap_user_filter=(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))
+```

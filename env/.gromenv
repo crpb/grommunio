@@ -172,7 +172,7 @@ grom_empty_trashbin() {
     if [[ $_grom_users =~ $1 ]]; then
       user="$1"
       printf 'running emptyfld -R -t 31d 0xb for user: %s\n' "${user}" | tee >(logger -t grom_empty_trashbin)
-      gromox-mbop -u "${user}" emptyfld -R -t 31d 0xb | tee >(logger -t grom_empty_trashbin)
+      gromox-mbop -u "${user}" emptyfld -R -t 31d --delempty 0xb | tee >(logger -t grom_empty_trashbin)
     fi
   fi
 }
@@ -474,6 +474,7 @@ _comp_grom_users() {
 complete -F _comp_grom_users exmdb_list_folders
 complete -F _comp_grom_users exmdb_get_stdFolders
 complete -F _comp_grom_users _grom_query_trashbin_count _grom_query_maildir _grom_query_trashbin_ids _grom_empty_trashbin _grom_learn_ham
+complete -F _comp_grom_users exmdb-perms 
 
 ##SetStdFolderRights
 exmdb_set_stdFolders() {

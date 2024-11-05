@@ -4,6 +4,7 @@ alias glog='git log --graph --decorate=full --name-status'
 alias grep='grep -iE --color'
 alias gromtail='find /var/log/grom* /var/log/nginx /var/log/mysql -type f -iname "*log" -exec tail -f "{}" +'
 alias gromjournal='journalctl -f -u grommunio-admin-api.service -u grommunio-antispam.service -u grommunio-cui@tty1.service -u gromox-delivery-queue.service -u gromox-delivery.service -u gromox-event.service -u gromox-http.service -u gromox-imap.service -u gromox-midb.service -u gromox-pop3.service -u gromox-timer.service -u gromox-zcore.service -u nginx.service -u php-fpm.service -u postfix.service'
+alias gromdf='df -h / /var/lib/gromox /boot'
 alias l='ls -lah'
 alias la='ls -lAh'
 alias ll='ls -lh'
@@ -12,10 +13,28 @@ alias lsa='ls -lah'
 alias qdu="find -mindepth 1 -maxdepth 1 -path ./sys -prune -o -path ./proc -prune -o -print0 | xargs -0 du -hsx | sort -h"
 alias renix='nginx -t && nginx -s reload'
 alias systemctl="systemctl --no-pager"
-alias zypup='zypp-refresh ; zypper --verbose up && zypper ps --print "systemctl status %s" && rm -f /var/lib/check_mk_agent/cache/plugins_mk_zypper.cache'
+#alias zypup='zypp-refresh ; zypper --verbose up && zypper ps --print "systemctl status %s" && rm -f /var/lib/check_mk_agent/cache/plugins_mk_zypper.cache'
 alias fail2list='fail2ban-client status |sed -n "s/,//g;s/.*Jail list:[[:space:]]//p"|xargs -n 1 fail2ban-client status |grep -E "^Status|Banned IP list"'
 
+zypup() {
+	local NEEDRESTART
+	zypp-refresh
+	zypper --verbose --no-refresh up
+	if [ -f /var/lib/check_mk_agent/cache/plugins_mk_zypper.cache ]; then
+		rm -vf /var/lib/check_mk_agent/cache/plugins_mk_zypper.cache
+	fi
+	NEEDRESTART=$(zypper ps --print "systemctl status %s" | awk '/systemctl status / { line = (line? line FS $3: $3) } END { print line }')
+	if test -n "$NEEDRESTART"; then
+		echo "There are Services which might need a restart"
+		echo -e "\v\t$NEEDRESTART\v"
+		read -r -p "Want to restart them now? [y/N] " DORESTART
+		if [[ "$DORESTART" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			systemctl restart $NEEDRESTART
+		fi
+	fi
+}
+
 if test -n "$(command -vp snapper)"; then
-  alias snapconfs='snapper list-configs --columns config |tail -n +3'
-  __delete_root_snapshots() { snapper -c root delete 0-$(snapper -c root ls |awk 'END{print $1}') ; }
+	alias snapconfs='snapper list-configs --columns config |tail -n +3'
+	__delete_root_snapshots() { snapper -c root delete 0-$(snapper -c root ls |awk 'END{print $1}') ; }
 fi
