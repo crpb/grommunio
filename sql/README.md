@@ -56,5 +56,5 @@ exmdb-perms user@dom.tld | jq ' keys, [ .permissions[0]| keys ] '
     - `exmdb-perms  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .folder_name | match("Customer-X" ) ) ] } '`
 - Foldername + Parent
   - Foldername LIKE "%Customer%" and subdirectory of Inbox
-    `exmdb-perms  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( ( .folder_name | match( "Customer" ) ) and ( .parent_hex == "0xd" ) ) ] } '`
+    - `exmdb-perms  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( ( .folder_name | match( "Customer" ) ) and ( .parent_hex == "0xd" ) ) ] } '`
 
