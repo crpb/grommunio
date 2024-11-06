@@ -17,16 +17,7 @@ INSERT OR REPLACE INTO temp.perms("perm","name") VALUES
 ( 1024,'foldervisible'),
 ( 2048,'freebusysimple'),
 ( 4096,'freebusydetailed'),
-( 8192,'storeowner'),
-( 1025,'reviewer:readany,foldervisible'),
-( 1026,'contributor:create,foldervisible'),
-( 1043,'noneditingauthor:readany,create,deleteowned,foldervisible'),
-( 1051,'author:readany,create,editowned,deleteowned,foldervisible'),
-( 1147,'editor:readany,create,editowned,deleteowned,editany,deleteany,foldervisible'),
-( 1179,'publishingauthor:readany,create,editowned,deleteowned,createsubfolder,foldervisible'),
-( 1275,'publishingeditor:readany,create,editowned,deleteowned,editany,deleteany,createsubfolder,foldervisible'),
-( 7195,'calendar-author:readany,create,editowned,deleteowned,foldervisible'),
-( 7323,'calendar-publishingauthor:readany,create,editowned,deleteowned,createsubfolder,foldervisible')
+( 8192,'storeowner')
 ;
 -- FOLDER LOOKUP VIEW VIA FOLDERS INCLUDING PARENT
 CREATE VIEW IF NOT EXISTS temp.folderlist
@@ -57,6 +48,7 @@ AS SELECT p.folder_id as folder_id,
           (SELECT printf('0x%x',f.parent_id)) AS parent_hex,
           f.propval AS folder_name,
           p.username,
+	  (SELECT GROUP_CONCAT(name) AS permissions FROM temp.perms WHERE (perm & p.permission) > 0) AS permissions,
           x.name as permission,
           p.permission AS permission_dec,
           (SELECT printf('0x%x',p.permission)) AS permission_hex

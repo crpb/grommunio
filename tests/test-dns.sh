@@ -30,7 +30,7 @@ DOMAIN=$1
 NS=${2-resolver1.opendns.com}
 NS="@${NS}"
 test -z "$1" && { echo "Usage: $0 domain.tld [dns-server]" ; exit 1 ; }
-SRV=(autodiscover caldav caldavs carddav carddavs imap imaps pop3 pop3s smpt smtps sieve submission)
+SRV=(autodiscover caldav caldavs carddav carddavs imap imaps pop3 pop3s smtp smtps sieve submission)
 TXT=( caldav caldavs carddav carddavs )
 DIG=$(command -v dig || { echo "Command dig not found" ; exit 1 ; })
 # Check for _tcp
