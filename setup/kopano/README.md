@@ -114,6 +114,4 @@ sed -i.bak -e 's/^# \(.*,1$\)/\1/g' -e 's/\(^.*,0$\)/# \1/g' /root/import/k2g_li
 /root/bin/kopano2grommunio.sh
 ```
 
-# sed for 
-
 Good luck!
