@@ -2,7 +2,8 @@ alias _grom_clear_index='rm -Rf /var/lib/grommunio-web/sqlite-index/*;  /usr/sbi
 alias bat='bat -p' #BAT CAT!
 alias glog='git log --graph --decorate=full --name-status'
 alias grep='grep -iE --color'
-alias gromtail='find /var/log/grom* /var/log/nginx /var/log/mysql -type f -iname "*log" -exec tail -f "{}" +'
+alias gromtail='find /var/log/grom* /var/log/nginx /var/log/mysql -type f -iname "*log" -exec tail -f "{}" + | awk '\''/^==> / {a=substr($0, 5, length-8); next} {print a":"$0}'\'''
+#alias gromtail='find /var/log/grom* /var/log/nginx /var/log/mysql -type f -iname "*log" -exec tail -f "{}" + | awk \'/^==> / {a=substr($0, 5, length-8); next} {print a":"$0}\''
 alias gromjournal='journalctl -f -u grommunio-admin-api.service -u grommunio-antispam.service -u grommunio-cui@tty1.service -u gromox-delivery-queue.service -u gromox-delivery.service -u gromox-event.service -u gromox-http.service -u gromox-imap.service -u gromox-midb.service -u gromox-pop3.service -u gromox-timer.service -u gromox-zcore.service -u nginx.service -u php-fpm.service -u postfix.service'
 alias gromdf='df -h / /var/lib/gromox /boot'
 alias l='ls -lah'
