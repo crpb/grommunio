@@ -23,7 +23,7 @@ INSERT OR REPLACE INTO temp.perms("perm","name") VALUES
 CREATE VIEW IF NOT EXISTS temp.folderlist
 AS SELECT distinct(p.folder_id),
           p.parent_id,
-          f1.propval
+          f1.propval AS foldername
      FROM folders p
      JOIN folder_properties f1
        ON f1.folder_id = p.folder_id
@@ -33,7 +33,7 @@ AS SELECT distinct(p.folder_id),
 -- FOLDER LOOKUP VIEW VIA PERMISSIONS
 CREATE VIEW IF NOT EXISTS temp.folderlist_p
 AS SELECT distinct(p.folder_id),
-          f1.propval
+          f1.propval AS foldername
   FROM    permissions p
  INNER    JOIN folder_properties f1
     ON    f1.folder_id = p.folder_id
@@ -46,7 +46,7 @@ AS SELECT p.folder_id as folder_id,
           f.parent_id,
           (SELECT printf('0x%x',p.folder_id)) AS folder_hex,
           (SELECT printf('0x%x',f.parent_id)) AS parent_hex,
-          f.propval AS folder_name,
+          f.foldername,
           p.username,
 	  (SELECT GROUP_CONCAT(name) AS permissions FROM temp.perms WHERE (perm & p.permission) > 0) AS permissions,
           x.name as permission,
@@ -61,7 +61,21 @@ ORDER BY  p.folder_id ASC,
           f.parent_id ASC,
           p.username ASC
 ;
+
+-- MSGs/FOLDER
+DROP VIEW IF EXISTS temp.messagecount;
+CREATE VIEW temp.messagecount AS
+SELECT fl.folder_id AS id,
+       fl.foldername AS folder,
+       count(*) AS COUNT
+FROM folderlist fl
+INNER JOIN messages m ON fl.folder_id = m.parent_fid
+WHERE m.is_deleted = 0
+  AND fl.parent_id > 1
+GROUP BY fl.folder_id
+;
+
 -- QUERY OUR VIEW
-SELECT * FROM folderpermissions
+-- SELECT * FROM folderpermissions
 ;
 

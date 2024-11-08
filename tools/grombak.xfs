@@ -98,7 +98,7 @@ if lvdisplay $DISKSOURCE >/dev/null; then
     BACKUPROOT=$SNAPPATH
   fi
 fi
-# Wether we have a snapshot or not, we can start the Services again.
+# Whether we have a snapshot or not, we can start the Services again.
 echo "Starting midb/pop3/imap services"
 /bin/date -Is
 /usr/bin/systemctl start ${SERVICES}

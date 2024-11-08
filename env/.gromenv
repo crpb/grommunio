@@ -13,7 +13,7 @@ usage_btrfs() {
 }
 
 # Show Disk-Usage of mailboxes
-alias grom_du='grommunio-admin user query username maildir |sed '1,2d' | while read -r user mdir; do printf "%s\t%s\t%s\n" "$(du -hs ${mdir}|cut -f1)" "$user" "$mdir"; done  |sort -h -k1'
+grom_du() { grommunio-admin user query username maildir |sed '1,2d;/gromox/!d' | while read -r user mdir; do printf "%s\t%s\t%s\n" "$(du -hs ${mdir}|cut -f1)" "$user" "$mdir"; done  |sort -h -k1 ; }
 
 # Get Grommunio-Package-Versions
 _grom_versions() {

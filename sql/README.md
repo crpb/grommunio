@@ -1,5 +1,15 @@
 # Examples
 
+## selector
+
+Will run `temp.views` and then anything declared in `$linkname.sql`.
+
+e.g. `ln -s $PWD/selector "${PATH%%:*}"/messagecount will try to load the file
+`$PWD/messagecount.sql` and execute it on the sqlite-db of $1 or all users.
+> `for SQL in *.sql; do echo ln -s $PWD/selector "$HOME/bin/${SQL%.sql}"; done`
+
+
+
 ## json keys
 
 ```

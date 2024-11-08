@@ -17,9 +17,13 @@ test -z "$PROFILEREAD" && . /etc/profile || true
 #export LANG=fr_FR.UTF-8	# uncomment this line for French output
 #export LANG=es_ES.UTF-8	# uncomment this line for Spanish output
 
+if [ -d "$HOME/bin" ] ; then
+      PATH="$HOME/bin:$PATH"
+fi
 if [ -d "$HOME/.local/bin" ] ; then
       PATH="$HOME/.local/bin/:$PATH"
 fi
+export PATH
 # Some people don't like fortune. If you uncomment the following lines,
 # you will have a fortune each time you log in ;-)
 
