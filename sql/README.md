@@ -1,4 +1,4 @@
-# Examples
+# Usage and examples
 
 ## selector
 
@@ -10,10 +10,12 @@ e.g. `ln -s $PWD/selector "${PATH%%:*}"/messagecount will try to load the file
 
 
 
-## json keys
+## `folderpermissions`
+
+### json keys
 
 ```
-exmdb-perms user@dom.tld | jq ' keys, [ .permissions[0]| keys ] '
+folderpermissions user@dom.tld | jq ' keys, [ .permissions[0]| keys ] '
 [
   "maildir",
   "permissions",
@@ -33,38 +35,69 @@ exmdb-perms user@dom.tld | jq ' keys, [ .permissions[0]| keys ] '
 ]
 ```
 
-## filter
+### filter on `folderpermissions`
 
-### Single mailbox
+#### Single mailbox
 - username
   - default permissions
-    - `exmdb-perms user@dom.tld | jq ' .permissions[] | select ( .username | match("default") ) '`
+    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .username | match("default") ) '`
   - match email
-    - `exmdb-perms user@dom.tld | jq ' .permissions[] | select ( .username | match( "foo@dom.tld" ) ) '`
+    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .username | match( "foo@dom.tld" ) ) '`
   - match domain 
-    - `exmdb-perms user@dom.tld | jq ' .permissions[] | select ( .username | match( "@dom.tld" ) ) '`
+    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .username | match( "@dom.tld" ) ) '`
 - folder_id (int)
   - IPM_SUBTREE
-    - `exmdb-perms user@dom.tld | jq ' .permissions[] | select ( .folder_id == 9 ) '`
+    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .folder_id == 9 ) '`
 - folder_hex
   - IPM_SUBTREE
-    - ` exmdb-perms user@dom.tld | jq ' .permissions[] | select ( .folder_hex == "0x9" ) '`
+    - ` folderpermissions user@dom.tld | jq ' .permissions[] | select ( .folder_hex == "0x9" ) '`
   - Calendar
-    - `exmdb-perms user@dom.tld | jq ' .permissions[] | select ( .folder_hex == "0xf" ) '`
+    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .folder_hex == "0xf" ) '`
 
-### All mailboxes + modified array
+#### All mailboxes + modified array
 - folder_hex
   - IPM_SUBTREE 
-    - `exmdb-perms  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .folder_hex == "0x9" ) ] } '`
+    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .folder_hex == "0x9" ) ] } '`
   - Freebusy Data
-    - `exmdb-perms  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .folder_hex == "0x18" ) ] } '`
+    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .folder_hex == "0x18" ) ] } '`
 - Permission(decimal)
   - > 2048
-    - `exmdb-perms  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .permission_dec >= 2048 ) ] } '`
+    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .permission_dec >= 2048 ) ] } '`
 - Foldername
   - Foldername LIKE "%Customer-X%"
-    - `exmdb-perms  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .folder_name | match("Customer-X" ) ) ] } '`
+    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .folder_name | match("Customer-X" ) ) ] } '`
 - Foldername + Parent
   - Foldername LIKE "%Customer%" and subdirectory of Inbox
-    - `exmdb-perms  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( ( .folder_name | match( "Customer" ) ) and ( .parent_hex == "0xd" ) ) ] } '`
+    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( ( .folder_name | match( "Customer" ) ) and ( .parent_hex == "0xd" ) ) ] } '`
+
+## `messagecount`
+
+```
+ # messagecount server@moo.tld |jq
+{
+    "username": "server@moo.tld",
+        "maildir": "/var/lib/gromox/user/1/3",
+        "permissions": [
+        {
+            "id": 13,
+            "folder": "Inbox",
+            "COUNT": 1885
+        },
+        {
+            "id": 15,
+            "folder": "Calendar",
+            "COUNT": 4
+        },
+        {
+            "id": 19,
+            "folder": "Contacts",
+            "COUNT": 1
+        },
+        {
+            "id": 2106081,
+            "folder": "2024",
+            "COUNT": 1094
+        }
+    ]
+}
 

@@ -1,4 +1,8 @@
+-- vim: ft=sql
+/* THOSE DROP STATEMENTS ARE GOOD FOR TESTING */
+
 -- FOLDER PERMISSIONS LOOKUP TABLE
+-- DROP TABLE IF EXISTS temp.perms;
 CREATE TABLE IF NOT EXISTS "temp"."perms" (
   "perm"  INTEGER UNIQUE,
   "name"  TEXT
@@ -19,7 +23,9 @@ INSERT OR REPLACE INTO temp.perms("perm","name") VALUES
 ( 4096,'freebusydetailed'),
 ( 8192,'storeowner')
 ;
+
 -- FOLDER LOOKUP VIEW VIA FOLDERS INCLUDING PARENT
+-- DROP VIEW IF EXISTS temp.folderlist;
 CREATE VIEW IF NOT EXISTS temp.folderlist
 AS SELECT distinct(p.folder_id),
           p.parent_id,
@@ -30,7 +36,9 @@ AS SELECT distinct(p.folder_id),
       AND f1.proptag = 805371935
     ORDER BY p.folder_id
 ;
--- FOLDER LOOKUP VIEW VIA PERMISSIONS
+
+-- FOLDER LOOKUP VIEW VIA PERMISSIONS / old..
+-- DROP VIEW IF EXISTS temp.folderlist_p;
 CREATE VIEW IF NOT EXISTS temp.folderlist_p
 AS SELECT distinct(p.folder_id),
           f1.propval AS foldername
@@ -40,7 +48,9 @@ AS SELECT distinct(p.folder_id),
    AND    f1.proptag = 805371935
  ORDER    BY p.folder_id
 ;
+
 -- LOOKUP PERMISSIONS
+-- DROP VIEW IF EXISTS temp.folderpermissions;
 CREATE VIEW IF NOT EXISTS temp.folderpermissions
 AS SELECT p.folder_id as folder_id,
           f.parent_id,
@@ -63,19 +73,15 @@ ORDER BY  p.folder_id ASC,
 ;
 
 -- MSGs/FOLDER
-DROP VIEW IF EXISTS temp.messagecount;
-CREATE VIEW temp.messagecount AS
+-- DROP VIEW IF EXISTS temp.messagecount;
+CREATE VIEW IF NOT EXISTS temp.messagecount AS
 SELECT fl.folder_id AS id,
        fl.foldername AS folder,
-       count(*) AS COUNT
+       count(*) AS count
 FROM folderlist fl
 INNER JOIN messages m ON fl.folder_id = m.parent_fid
 WHERE m.is_deleted = 0
   AND fl.parent_id > 1
 GROUP BY fl.folder_id
-;
-
--- QUERY OUR VIEW
--- SELECT * FROM folderpermissions
 ;
 
