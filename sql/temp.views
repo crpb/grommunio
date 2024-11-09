@@ -77,11 +77,13 @@ ORDER BY  p.folder_id ASC,
 CREATE VIEW IF NOT EXISTS temp.messagecount AS
 SELECT fl.folder_id AS id,
        fl.foldername AS folder,
-       count(*) AS count
-FROM folderlist fl
-INNER JOIN messages m ON fl.folder_id = m.parent_fid
-WHERE m.is_deleted = 0
-  AND fl.parent_id > 1
-GROUP BY fl.folder_id
+       count(m.message_id) AS count
+  FROM folderlist fl
+  LEFT JOIN messages m
+    ON fl.folder_id = m.parent_fid
+   AND m.is_deleted = 0
+ WHERE fl.parent_id > 1
+ GROUP BY fl.folder_id,
+          fl.foldername
 ;
 
