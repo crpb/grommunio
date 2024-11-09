@@ -22,7 +22,7 @@ command mysql grommunio --skip-column-names \
 	while read -r username maildir; do
 		printf '{ "username": "%s",
 		"maildir": "%s",
-		"permissions": %s }\n\n' \
+		"result": %s }\n\n' \
 			"$username" "$maildir" \
 			"$(echo "${VIEWS};${SELECT}"|
 			command sqlite3 -readonly -json \
