@@ -519,3 +519,14 @@ complete -F _comp_exmdb_set_stdFolders exmdb_set_stdFolders
 # for user in $(grom_users); do grommunio-admin exmdb $user folder grant 0xf my.accountname@mycompany.tld $ACL_EDITOR ;done
 # check on all users which permissions are set for 00xf Calendar (optionally with some username to only show this settings.
 # for user in $(grom_users); do grommunio-admin exmdb $user folder permissions 0xfl d;done
+
+grom_downsync ()
+{
+	unset orgs;
+	orgs=$(grommunio-admin domain query --format=csv orgID |uniq | sed '/^orgID/d;s/\r/ /g');
+	for org in $orgs;
+	do
+		grommunio-admin ldap downsync --complete --organization $org;
+	done;
+}
+

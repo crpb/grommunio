@@ -32,9 +32,13 @@ export PATH
 #    /usr/bin/fortune
 #    echo
 #fi
-smtpauths=$(journalctl --unit postfix.service --since=-7days | sed -n '/sasl_method/ s/.*client=\(.*\)\[\(.*\)\],.*sasl_username=\(.*\)$/\3 \2 \1/p' |sort | uniq -c |sort -nr)
-if [[ "${#smtpauths}" -gt 0 ]]; then
-  echo "SMTP-Logins in the last 7 days"
-  echo "$smtpauths"
+if [ -t 1 ] ; then
+	smtpauths=$(journalctl --unit postfix.service --since=-7days |
+		sed -n '/sasl_method/ s/.*client=\(.*\)\[\(.*\)\],.*sasl_username=\(.*\)$/\3 \2 \1/p' |
+		sort | uniq -c |sort -nr)
+	if [[ "${#smtpauths}" -gt 0 ]]; then
+		echo "SMTP-Logins in the last 7 days"
+		echo "$smtpauths"
+	fi
 fi
 source ~/.bashrc
