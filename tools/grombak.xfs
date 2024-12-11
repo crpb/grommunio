@@ -3,20 +3,27 @@ export PATH=/sbin:/usr/sbin:/usr/bin:/bin
 set -e
 recover_svcs() {
   /usr/bin/systemctl start gromox-midb.service gromox-imap.service gromox-pop3.service
+  if [ -d $SNAPPATH ]; then
+	  umount $SNAPPATH
+	  /usr/sbin/lvremove -y /dev/gromox/s_maildir 
+  fi
 }
 trap "recover_svcs" ERR
 
 SERVICES=( gromox-midb.service gromox-imap.service gromox-pop3.service )
 
-BACKUPROOT=/opt/restore
-# THEY MUST END WITH A SLASH!!1
-SOURCEDIRS=( /var/lib/gromox/ )
+BACKUPROOT=$(awk '/grom.*nfs/ {print $2}' /etc/fstab)
+GROMOXSRC=/var/lib/gromox 
 
-LASTBACKUPDIR=$(ls -td $BACKUPROOT/*/ | head -1)
-NEWBACKUPDIR="$BACKUPROOT/$(date +%Y-%M-%d_%H:%M)"
+#LASTBACKUPDIR=$(basename $(ls -td $BACKUPROOT/grombak/* | head -1))
+#NEWBACKUPDIR="$BACKUPROOT/grombak/$(date +%Y%m%d-%H%M)"
+NEWBACKUPDIR="$BACKUPROOT/grombak/zfs"
 
-ETCFLDS="grom\|postfix"
-RSYNCOPTS="-rau --partial --delete-after"
+ETCFLDS="grom\|postfix\|redis\|nginx"
+RSYNCOPTS="-au --partial --delete-after"
+#RSYNCOPTS="-HPaS --partial"
+#if [ -t ]; then RSYNCOPTS="$RSYNCOPTS --progress"; fi
+if [ -t 1 ]; then RSYNCOPTS="$RSYNCOPTS --info=progress2"; fi
 MYSQLDUMPOPTS="--single-transaction --routines --triggers --events --add-drop-database"
 
 #Check if dir exists or exit
@@ -70,7 +77,6 @@ cat <<CONFFILE >"${CONFIG_FILE}"
 user=${MYSQL_USERNAME}
 password=${MYSQL_PASSWORD}
 host=${MYSQL_HOST}
-database=${MYSQL_DBNAME}
 CONFFILE
 
 cleanup() { rm -f "$CONFIG_FILE" ; }
@@ -89,13 +95,13 @@ done
 DISKSOURCE=$(findmnt /var/lib/gromox --noheadings --output SOURCE)
 # Check if it is a lvm volume
 if lvdisplay $DISKSOURCE >/dev/null; then
-  if /sbin/lvcreate -l10%FREE --snapshot --name s_maildir /dev/gromox/maildir; then
+  if /sbin/lvcreate -l100%FREE --snapshot --name s_maildir /dev/gromox/maildir; then
     echo "Snapshot created."
     ## TEMPORARY MOUNT POINT
     SNAPPATH=$(mktemp --suffix=lvmsnap --directory)
     ## MOUNT XFS ( we need -o nouuid as xfs doesn't like duplicates of UUIDs )
     /usr/bin/mount -o nouuid /dev/gromox/s_maildir $SNAPPATH
-    BACKUPROOT=$SNAPPATH
+    GROMOXSRC=$SNAPPATH
   fi
 fi
 # Whether we have a snapshot or not, we can start the Services again.
@@ -109,24 +115,29 @@ mkdir -p ${NEWBACKUPDIR}/{confs,mysql,fs} || echo "[ERROR] could not create Dire
 #CONFIGS
 echo "Creating archive of etc-configs"
 cd /
-find etc/ -maxdepth 1 -type d -iregex ".*\(${ETCFLDS}\).*" -exec tar -czf "${BACKUPROOT}/confs/etc.tar.gz" {} +  || echo "[ERROR] config-files"
-ls -sh "${BACKUPROOT}/confs/etc.tar.gz"
+find /etc -maxdepth 1 -type d -iregex ".*\(${ETCFLDS}\).*" -exec tar -czf "${NEWBACKUPDIR}/confs/etc.tar.gz" {} +  || echo "[ERROR] config-files"
+ls -sh "${NEWBACKUPDIR}/confs/etc.tar.gz"
 #MYSQLDUMP
 # shellcheck disable=SC2154
 echo "Creating mysqldump"
-COMMAND="mysqldump --defaults-file=${CONFIG_FILE} ${MYSQLDUMPOPTS}"
-$COMMAND > "${BACKUPROOT}/mysql/${mysql_dbname}.sql" || (echo "[ERROR] ${COMMAND//word=*--data/word= --data}")
-ls -sh "${BACKUPROOT}/mysql/${mysql_dbname}.sql" 
+COMMAND="mysqldump --defaults-file=${CONFIG_FILE} -B ${MYSQL_DBNAME} ${MYSQLDUMPOPTS}"
+$COMMAND > "${NEWBACKUPDIR}/mysql/${MYSQL_DBNAME}.sql" || (echo "[ERROR] ${COMMAND}")
+ls -sh "${NEWBACKUPDIR}/mysql/${MYSQL_DBNAME}.sql" 
 
 #RSYNC
-echo "Starting Rsync of ${SOURCEDIRS[@]}"
-COMMAND="rsync ${RSYNCOPTS} --link-dest ${LATESTBACKUPDIR} ${SOURCEDIRS[@]} ${NEWBACKUPDIR}/fs"
+echo "Starting Rsync of $GROMOXSRC"
+#COMMAND="rsync ${RSYNCOPTS} --log-file $NEWBACKUPDIR/rsync.log --link-dest ../$LASTBACKUPDIR ${GROMOXSRC[@]} $NEWBACKUPDIR/fs"
+echo > $NEWBACKUPDIR/rsync.log
+COMMAND="rsync ${RSYNCOPTS} --log-file $NEWBACKUPDIR/rsync.log $GROMOXSRC/* $NEWBACKUPDIR/fs"
 #rm -rf ${LATESTBACKUPDIR}
 time $COMMAND || echo "[ERROR] ${COMMAND}"
 
-# # cleanup working snapshot
-# echo "Deleting snapshot ${SNAPPATH}"
-# /usr/bin/snapper -c ${SNAPCONF} delete ${SNAPNUM}
+# cleanup working snapshot
+if [ -d "$SNAPPATH" ]; then 
+	echo "Deleting snapshot $SNAPPATH"
+	umount -v $SNAPPATH
+	/usr/sbin/lvremove -y /dev/gromox/s_maildir 
+fi
 
 echo
 echo "Data usage:"
