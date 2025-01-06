@@ -1,13 +1,15 @@
 -- vim: ft=sql
 /* THOSE DROP STATEMENTS ARE GOOD FOR TESTING */
 
+/* ;;;;;;;;; YOU SHOULD ALWAYS FINISH A STATEMENT WITH A SEMICOLON ;;;;;;;;; */
+
 -- FOLDER PERMISSIONS LOOKUP TABLE
--- DROP TABLE IF EXISTS temp.perms;
-CREATE TABLE IF NOT EXISTS "temp"."perms" (
+-- DROP TABLE IF EXISTS perms;
+CREATE TABLE IF NOT EXISTS perms (
   "perm"  INTEGER UNIQUE,
   "name"  TEXT
 );
-INSERT OR REPLACE INTO temp.perms("perm","name") VALUES
+INSERT OR REPLACE INTO perms("perm","name") VALUES
 ( 1,'redany'),
 ( 2,'create'),
 ( 4,'sendas'),
@@ -25,8 +27,8 @@ INSERT OR REPLACE INTO temp.perms("perm","name") VALUES
 ;
 
 -- FOLDER LOOKUP VIEW VIA FOLDERS INCLUDING PARENT
--- DROP VIEW IF EXISTS temp.folderlist;
-CREATE VIEW IF NOT EXISTS temp.folderlist
+-- DROP VIEW IF EXISTS folderlist;
+CREATE VIEW IF NOT EXISTS folderlist
 AS SELECT distinct(p.folder_id),
           p.parent_id,
           f1.propval AS foldername
@@ -38,8 +40,8 @@ AS SELECT distinct(p.folder_id),
 ;
 
 -- FOLDER LOOKUP VIEW VIA PERMISSIONS / old..
--- DROP VIEW IF EXISTS temp.folderlist_p;
-CREATE VIEW IF NOT EXISTS temp.folderlist_p
+-- DROP VIEW IF EXISTS folderlist_p;
+CREATE VIEW IF NOT EXISTS folderlist_p
 AS SELECT distinct(p.folder_id),
           f1.propval AS foldername
   FROM    permissions p
@@ -50,22 +52,22 @@ AS SELECT distinct(p.folder_id),
 ;
 
 -- LOOKUP PERMISSIONS
--- DROP VIEW IF EXISTS temp.folderpermissions;
-CREATE VIEW IF NOT EXISTS temp.folderpermissions
+-- DROP VIEW IF EXISTS folderpermissions;
+CREATE VIEW IF NOT EXISTS folderpermissions
 AS SELECT p.folder_id as folder_id,
           f.parent_id,
           (SELECT printf('0x%x',p.folder_id)) AS folder_hex,
           (SELECT printf('0x%x',f.parent_id)) AS parent_hex,
           f.foldername,
           p.username,
-	  (SELECT GROUP_CONCAT(name) AS permissions FROM temp.perms WHERE (perm & p.permission) > 0) AS permissions,
+	  (SELECT GROUP_CONCAT(name) AS permissions FROM perms WHERE (perm & p.permission) > 0) AS permissions,
           x.name as permission,
           p.permission AS permission_dec,
           (SELECT printf('0x%x',p.permission)) AS permission_hex
     FROM  permissions p
     JOIN  folderlist f
       ON  p.folder_id = f.folder_id
-    LEFT  JOIN temp.perms x
+    LEFT  JOIN perms x
       ON  x.perm = p.permission
 ORDER BY  p.folder_id ASC,
           f.parent_id ASC,
@@ -73,8 +75,8 @@ ORDER BY  p.folder_id ASC,
 ;
 
 -- MSGs/FOLDER
--- DROP VIEW IF EXISTS temp.messagecount;
-CREATE VIEW IF NOT EXISTS temp.messagecount AS
+-- DROP VIEW IF EXISTS messagecount;
+CREATE VIEW IF NOT EXISTS messagecount AS
 SELECT fl.folder_id AS id,
        fl.foldername AS folder,
        count(m.message_id) AS count
@@ -87,3 +89,16 @@ SELECT fl.folder_id AS id,
           fl.foldername
 ;
 
+-- DROP VIEW IF EXISTS folderstatistics;
+CREATE VIEW IF NOT EXISTS folderstatistics AS
+SELECT fl.folder_id AS id,
+       fl.foldername AS name,
+       SUM(m.message_size) as foldersize,
+       count(m.message_id) AS count
+  FROM folderlist fl
+  LEFT JOIN messages m
+    ON fl.folder_id = m.parent_fid
+   AND m.is_deleted = 0
+ WHERE fl.parent_id > 1
+ GROUP BY fl.folder_id,
+          fl.foldername;

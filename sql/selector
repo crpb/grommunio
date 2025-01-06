@@ -1,12 +1,19 @@
-#!/usr/bin/env sh
+#!/bin/sh
 [ "$DEBUG" ] && set -x
-SRC="$( readlink -f "$0")"
+SRC="$(readlink -f "$0")"
 DIR=$(dirname "$SRC")
 LINK=$(basename "$0")
-VIEWS=$(cat "$DIR/temp.views")
-if [ "$SRC" != "$LINK" ]; then
-	if [ -r "$DIR/${LINK}.sql" ]; then
-		SELECT=$(cat "$DIR/${LINK}.sql")
+FILE="${DIR}/${LINK}.sql"
+if [ "${SRC##*/}" = "$LINK" ]; then
+	if [ $# -ge 1 ] && [ -f "$1" ]; then
+		FILE="$1"
+	fi
+elif [ -L "$0" ] && [ -f "$FILE" ]; then
+	if [ $# -ge 1 ] && [ -f "$1" ]; then
+
+		if [ -r "$DIR/${LINK}.sql" ]; then
+			SELECT=$(cat "$DIR/${LINK}.sql")
+		fi
 	fi
 else
 	SELECT="pragma integrity_check;"
@@ -17,6 +24,12 @@ if [ $# = 1 ]; then
 	USR="$1"
 	MQUERY="$MQUERY AND username = \"${USR}\""
 fi
+VIEWS="$DIR/temp.views"
+if ! [ -r "$VIEWS" ]; then
+        echo "Temporary Views not found! Exiting!" >/dev/stderr
+        exit 1
+fi
+test -f "$VIEWS"; VIEWS=$(cat "$VIEWS")
 command mysql grommunio --skip-column-names \
 	--execute="$MQUERY" |
 	while read -r username maildir; do
@@ -24,7 +37,7 @@ command mysql grommunio --skip-column-names \
 		"maildir": "%s",
 		"result": %s }\n\n' \
 			"$username" "$maildir" \
-			"$(echo "${VIEWS};${SELECT}"|
+			"$(printf '%s\n;\n%s\n' "${VIEWS}" "${SELECT}"|
 			command sqlite3 -readonly -json \
 			"$maildir/exmdb/exchange.sqlite3")";
 		done
