@@ -3,8 +3,8 @@ export PATH=/sbin:/usr/sbin:/usr/bin:/bin
 set -e
 recover_svcs() {
   /usr/bin/systemctl start gromox-midb.service gromox-imap.service gromox-pop3.service
-  if [ -d $SNAPPATH ]; then
-	  umount $SNAPPATH
+  if [ -d "$SNAPPATH" ]; then
+	  umount "$SNAPPATH"
 	  /usr/sbin/lvremove -y /dev/gromox/s_maildir 
   fi
 }
@@ -69,7 +69,7 @@ MYSQL_HOST=$(sed -ne 's/^mysql_host\s*=\s*\(.*\)/-h\1/p' ${MYSQL_CFG})
 if [ -z "$MYSQL_HOST" ]; then
   MYSQL_HOST="localhost"
 fi
-MYSQL_QUERY="SELECT username,maildir from users where id <> 0 and maildir <> \"\";"
+#MYSQL_QUERY="SELECT username,maildir from users where id <> 0 and maildir <> \"\";"
 
 CONFIG_FILE=$(mktemp)
 cat <<CONFFILE >"${CONFIG_FILE}"
@@ -83,67 +83,78 @@ cleanup() { rm -f "$CONFIG_FILE" ; }
 trap cleanup EXIT
 
 date -Is
-echo "Stopping midb/pop3/imap services"
-# stop services to/and cleanup sqlites
-/usr/bin/systemctl stop ${SERVICES}
+echo "Restarting ${SERVICES[@]/.service/}"
+# restart services to/and cleanup sqlites
+/usr/bin/systemctl restart ${SERVICES[@]}
+date -Is
+echo "Running cleanup tasks for Mailboxes"
 for d in $(grommunio-admin user query maildir |sed '/^$/d'); do
-  /usr/sbin/gromox-mbop -d $d vacuum;
-  /usr/sbin/gromox-mbop -d $d purge-datafiles;
+  /usr/sbin/gromox-mbop -d $d purge-softdelete -t 30d -r IPM_SUBTREE
+  /usr/sbin/gromox-mbop -d $d purge-datafiles
+  /usr/sbin/gromox-mbop -d $d vacuum
 done
+date -Is
 
 # Try to create a LVM-Snapshot
 DISKSOURCE=$(findmnt /var/lib/gromox --noheadings --output SOURCE)
 # Check if it is a lvm volume
-if lvdisplay $DISKSOURCE >/dev/null; then
+if lvdisplay "$DISKSOURCE" >/dev/null; then
+  echo "LVM-Snapshot"
+  date -Is
   if /sbin/lvcreate -l100%FREE --snapshot --name s_maildir /dev/gromox/maildir; then
-    echo "Snapshot created."
     ## TEMPORARY MOUNT POINT
     SNAPPATH=$(mktemp --suffix=lvmsnap --directory)
     ## MOUNT XFS ( we need -o nouuid as xfs doesn't like duplicates of UUIDs )
-    /usr/bin/mount -o nouuid /dev/gromox/s_maildir $SNAPPATH
+    /usr/bin/mount -o nouuid /dev/gromox/s_maildir "$SNAPPATH"
     GROMOXSRC=$SNAPPATH
+    date -Is
+    echo "Snapshot created and mounted."
   fi
 fi
 # Whether we have a snapshot or not, we can start the Services again.
-echo "Starting midb/pop3/imap services"
-/bin/date -Is
-/usr/bin/systemctl start ${SERVICES}
+#echo "Starting midb/pop3/imap services"
+#/bin/date -Is
+#/usr/bin/systemctl start ${SERVICES[@]}
 
 #CREATE BACKUPDIRS
 mkdir -p ${NEWBACKUPDIR}/{confs,mysql,fs} || echo "[ERROR] could not create Directories in ${BACKUPROOT}"
 
 #CONFIGS
+date -Is
 echo "Creating archive of etc-configs"
 cd /
 find /etc -maxdepth 1 -type d -iregex ".*\(${ETCFLDS}\).*" -exec tar -czf "${NEWBACKUPDIR}/confs/etc.tar.gz" {} +  || echo "[ERROR] config-files"
 ls -sh "${NEWBACKUPDIR}/confs/etc.tar.gz"
 #MYSQLDUMP
 # shellcheck disable=SC2154
+date -Is
 echo "Creating mysqldump"
 COMMAND="mysqldump --defaults-file=${CONFIG_FILE} -B ${MYSQL_DBNAME} ${MYSQLDUMPOPTS}"
 $COMMAND > "${NEWBACKUPDIR}/mysql/${MYSQL_DBNAME}.sql" || (echo "[ERROR] ${COMMAND}")
 ls -sh "${NEWBACKUPDIR}/mysql/${MYSQL_DBNAME}.sql" 
 
 #RSYNC
+date -Is
 echo "Starting Rsync of $GROMOXSRC"
 #COMMAND="rsync ${RSYNCOPTS} --log-file $NEWBACKUPDIR/rsync.log --link-dest ../$LASTBACKUPDIR ${GROMOXSRC[@]} $NEWBACKUPDIR/fs"
 echo > $NEWBACKUPDIR/rsync.log
 COMMAND="rsync ${RSYNCOPTS} --log-file $NEWBACKUPDIR/rsync.log $GROMOXSRC/* $NEWBACKUPDIR/fs"
 #rm -rf ${LATESTBACKUPDIR}
-time $COMMAND || echo "[ERROR] ${COMMAND}"
+time -p $COMMAND || echo "[ERROR] ${COMMAND}"
 
 # cleanup working snapshot
 if [ -d "$SNAPPATH" ]; then 
 	echo "Deleting snapshot $SNAPPATH"
-	umount -v $SNAPPATH
+	umount -v "$SNAPPATH"
 	/usr/sbin/lvremove -y /dev/gromox/s_maildir 
 fi
 
 echo
+/bin/date -Is
 echo "Data usage:"
 echo "grommunio-admin fs du:"
-/usr/sbin/grommunio-admin fs du
+time -p /usr/sbin/grommunio-admin fs du
 echo
 echo "Backup directory:"
-/usr/bin/du -hs "${BACKUPROOT}"
+time -p /usr/bin/du -hs "${BACKUPROOT}"
 date -Is
