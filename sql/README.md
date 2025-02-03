@@ -4,7 +4,7 @@
 
 Will run `temp.views` and then anything declared in `$linkname.sql`.
 
-e.g. `ln -s $PWD/selector "${PATH%%:*}"/messagecount will try to load the file
+e.g. `ln -s $PWD/selector "${PATH%%:*}"/messagecount` will try to load the file
 `$PWD/messagecount.sql` and execute it on the sqlite-db of $1 or all users.
 > `for SQL in *.sql; do echo ln -s $PWD/selector "$HOME/bin/${SQL%.sql}"; done`
 
@@ -15,7 +15,7 @@ e.g. `ln -s $PWD/selector "${PATH%%:*}"/messagecount will try to load the file
 ### json keys
 
 ```
-folderpermissions user@dom.tld | jq ' keys, [ .permissions[0]| keys ] '
+folderpermissions user@dom.tld | jq ' keys, [ .result[0]| keys ] '
 [
   "maildir",
   "permissions",
@@ -40,35 +40,32 @@ folderpermissions user@dom.tld | jq ' keys, [ .permissions[0]| keys ] '
 #### Single mailbox
 - username
   - default permissions
-    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .username | match("default") ) '`
+    - `folderpermissions user@dom.tld | jq ' .result[] | select ( .username | match("default") ) '`
   - match email
-    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .username | match( "foo@dom.tld" ) ) '`
+    - `folderpermissions user@dom.tld | jq ' .result[] | select ( .username | match( "foo@dom.tld" ) ) '`
   - match domain 
-    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .username | match( "@dom.tld" ) ) '`
+    - `folderpermissions user@dom.tld | jq ' .result[] | select ( .username | match( "@dom.tld" ) ) '`
 - folder_id (int)
   - IPM_SUBTREE
-    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .folder_id == 9 ) '`
+    - `folderpermissions user@dom.tld | jq ' .result[] | select ( .folder_id == 9 ) '`
 - folder_hex
   - IPM_SUBTREE
-    - ` folderpermissions user@dom.tld | jq ' .permissions[] | select ( .folder_hex == "0x9" ) '`
+    - ` folderpermissions user@dom.tld | jq ' .result[] | select ( .folder_hex == "0x9" ) '`
   - Calendar
-    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .folder_hex == "0xf" ) '`
+    - `folderpermissions user@dom.tld | jq ' .result[] | select ( .folder_hex == "0xf" ) '`
 
 #### All mailboxes + modified array
 - folder_hex
   - IPM_SUBTREE 
-    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .folder_hex == "0x9" ) ] } '`
+    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .result[] | select ( .folder_hex == "0x9" ) ] } '`
   - Freebusy Data
-    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .folder_hex == "0x18" ) ] } '`
+    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .result[] | select ( .folder_hex == "0x18" ) ] } '`
 - Permission(decimal)
   - > 2048
-    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .permission_dec >= 2048 ) ] } '`
+    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .result[] | select ( .permission_dec >= 2048 ) ] } '`
 - Foldername
   - Foldername LIKE "%Customer-X%"
-    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .folder_name | match("Customer-X" ) ) ] } '`
-- Foldername + Parent
-  - Foldername LIKE "%Customer%" and subdirectory of Inbox
-    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( ( .folder_name | match( "Customer" ) ) and ( .parent_hex == "0xd" ) ) ] } '`
+    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .result[] | select ( .folder_name | match("Customer-X" ) ) ] } '`
 
 ## `messagecount`
 
