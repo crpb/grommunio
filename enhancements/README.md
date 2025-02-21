@@ -3,10 +3,9 @@ Script to check if we got an OCSP-Staple in our Certificate-Chain and extending 
 
 Also generates and activates the Diffie-Hellman key-exchange.
 
-# grommunio-spam-run
-Configure minimum time in days a mail must be in the Junk-Folder.
+# grommunio-ham
+- learn ham from an defined folder
+- enhancenments for spam-run aswell
 
-# grommunio-ham-run
-Ham - Yummy!
-./install-ham.sh \o/
-
+# grommunio-ldap-sync
+- automatically run ldap downsync for all configured organizations

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+orgs=$(grommunio-admin domain query --format=csv orgID 2>/dev/null |uniq | sed '/^orgID/d;s/\r/ /g');
+if [ -n "$orgs" ]; then
+	output=$(for org in $orgs; do
+	grommunio-admin ldap downsync --complete --organization "$org"
+done)
+fi
+if [ -t 1 ]; then
+	echo "$output"
+fi

@@ -1,5 +1,5 @@
 [Unit]
-Description=Daily ham classification, training and cleanup run
+Description=Gromox Requeue
 
 [Timer]
 OnCalendar=*:5/30

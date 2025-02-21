@@ -1,5 +1,5 @@
 [Unit]
-Description=Ham classification, training and cleanup run
+Description=Grommunio LDAP Sync
 
 [Service]
 ProtectSystem=full
@@ -13,4 +13,4 @@ ProtectKernelLogs=true
 ProtectControlGroups=true
 RestrictRealtime=true
 Type=oneshot
-ExecStart=/usr/local/sbin/grommunio-ham-run.sh
+ExecStart=/usr/local/sbin/grommunio-ldap-sync
