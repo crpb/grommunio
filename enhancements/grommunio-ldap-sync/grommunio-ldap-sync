@@ -6,6 +6,6 @@ if [ -n "$orgs" ]; then
 	grommunio-admin ldap downsync --complete --organization "$org"
 done)
 fi
-if [ -t 1 ]; then
+if [ -t 1 ] && [ -n "$output" ]; then
 	echo "$output"
 fi
