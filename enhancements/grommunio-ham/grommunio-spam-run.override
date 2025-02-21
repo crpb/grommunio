@@ -1,0 +1,4 @@
+[Service]
+ExecStart=
+ExecStart=/usr/local/sbin/grommunio-spam-run.sh
+
