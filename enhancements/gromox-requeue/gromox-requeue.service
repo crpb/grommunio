@@ -13,4 +13,4 @@ ProtectKernelLogs=true
 ProtectControlGroups=true
 RestrictRealtime=true
 Type=oneshot
-ExecStart=/usr/local/sbin/gromox-reqeue
+ExecStart=/usr/local/sbin/gromox-requeue
