@@ -3,10 +3,10 @@ set -e
 # https://docs.grommunio.com/admin/operations.html#mail-requeueing
 QUEUE="${QUEUE:-/var/lib/gromox/queue}"
 j=0
-for saved in "$QUEUE"/save/*; do
-	mess="$QUEUE/mess/$(date +%s)-$j"
-	mv "$saved" "$mess"
-	j=$((j+1))
-	echo "requeued ${saved##*/} as ${mess##*/}"
-	unset mess
+find "$QUEUE"/save -type f| while read -r saved; do
+        mess="$QUEUE/mess/$(date +%s)-$j"
+        mv "$saved" "$mess"
+        j=$((j+1))
+        echo "requeued ${saved##*/} as ${mess##*/}"
+        unset mess
 done
