@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -e
 # https://docs.grommunio.com/admin/operations.html#mail-requeueing
-QUEUE=${QUEUE:-/var/lib/gromox/queue}
+QUEUE="${QUEUE:-/var/lib/gromox/queue}"
 j=0
 for saved in "$QUEUE"/save/*; do
 	mess="$QUEUE/mess/$(date +%Y%m%d%H%M)-$j"
