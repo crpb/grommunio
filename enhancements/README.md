@@ -9,3 +9,6 @@ Also generates and activates the Diffie-Hellman key-exchange.
 
 # grommunio-ldap-sync
 - automatically run ldap downsync for all configured organizations
+
+# gromox-requeue
+- requeue stale messages in /var/lib/gromox/queue/save
