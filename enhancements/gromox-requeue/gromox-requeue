@@ -1,10 +1,12 @@
-!/usr/bin/env sh
+#!/usr/bin/env sh
+set -e
 # https://docs.grommunio.com/admin/operations.html#mail-requeueing
-cd /var/lib/gromox/queue/
+QUEUE=${QUEUE:-/var/lib/gromox/queue}
 j=0
-for i in save/*; do
-	[ -f "$i" ] || continue
-        mv "$i" "mess/0$j"
-        j=$(($j+1))
-        echo "requeued $i"
+for saved in "$QUEUE"/save/*; do
+	mess="$QUEUE/mess/$(date +%Y%m%d%H%M)-$j"
+	mv "$saved" "$mess"
+	j=$((j+1))
+	echo "requeued ${saved##*/} as ${mess##*/}"
+	unset mess
 done
