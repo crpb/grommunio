@@ -1,14 +1,8 @@
 #!/usr/bin/env bash
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # check for password-map mechanisms / lmdb on opnsuse
-TABLE='lmdb' ; if postconf -m |grep -q $TABLE; then TABLE='hash' ; fi
+TABLE='lmdb' # ; postconf -m |grep -q $TABLE || TABLE='hash'
 # if no postdefaults file exists use this as a fallback
-POSTDEFAULTS="smtp_sasl_auth_enable=yes
-smtp_sasl_security_options=noanonymous
-smtp_sasl_password_maps=${TABLE}:/etc/postfix/sasl_passwd
-smtp_use_tls=yes
-smtpd_tls_mandatory_protocols=\!SSLv2,\!SSLv3,\!TLSv1,\!TLSv1.1
-smtpd_tls_protocols=\!SSLv2,\!SSLv3,\!TLSv1,\!TLSv1.1"
 if test -r "$SCRIPT_DIR/postdefaults" ; then 
 	DEFAULTS="$(cat "$SCRIPT_DIR"/postdefaults)" 
 else
@@ -21,9 +15,13 @@ RELAYPASS="${RELAYPASS:-"$(read -r -p "Auth-Pass: " ; echo "$REPLY")"}"
 SETDEFAULTS="${SETDEFAULS:-"$(read -r -p "Set defaults? (leave empty if not): " ; echo "$REPLY")"}"
 if [ ${#SETDEFAULTS} -ne 0 ]; then
 #switched to dbconf for main.cfg settings. see ../defaults.sh but it still works if we accept it
-while read -r line; do
-  postconf "$line"
-done <<< "$DEFAULTS"
+postconf -e \
+        smtp_sasl_auth_enable=yes \
+        smtp_sasl_security_options=noanonymous \
+        smtp_sasl_password_maps=${TABLE}:/etc/postfix/sasl_passwd \
+        smtp_use_tls=yes \
+        smtpd_tls_mandatory_protocols='>=TLSv1.2,<=TLSv1.3' \
+        smtpd_tls_protocols='>=TLSv1.2,<=TLSv1.3'
 fi
 postconf relayhost=["${RELAYHOST}"]:submission
 grep -s -qF -- "$RELAYHOST" /etc/postfix/sasl_passwd || \

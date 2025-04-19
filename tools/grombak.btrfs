@@ -92,3 +92,7 @@ echo
 echo "Backup directory:"
 /usr/bin/du -hs "${BDIR}"
 date -Is
+
+echo
+echo "Runtime: $SECONDS seconds"
+

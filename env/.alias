@@ -1,14 +1,25 @@
 # vim filetupe=bash
 ga() { grommunio-admin $@ ; }
 complete -F _python_argcomplete grommunio-admin ga
-gromtail() { find /var/log/grom* /var/log/nginx /var/log/mysql -type f -iname "*log" -exec tail -f "{}" + | awk '/^==> / {a=substr($0, 5, length-8); next} {print a":"$0}' ; }
+gromtail() { find /var/log/grom* /var/log/nginx /var/log/mysql /var/log/php* -type f -iname "*log" -exec tail -f "{}" + | awk '/^==> / {a=substr($0, 5, length-8); next} {print a":"$0}' ; }
 alias _grom_clear_index='rm -Rf /var/lib/grommunio-web/sqlite-index/*;  /usr/sbin/grommunio-index-run.sh'
 alias bat='bat -p' #BAT CAT!
 alias fail2list='fail2ban-client status |sed -n "s/,//g;s/.*Jail list:[[:space:]]//p"|xargs -n 1 fail2ban-client status |grep -E "^Status|Banned IP list"'
+#alias gdiff='git diff HEAD^ HEAD'
+alias gcom='git commit --verbose --status'
+alias gcoma='git commit --verbose --status --all'
+alias gdesc='git describe --tags `git rev-list --tags --max-count=50`'
+alias gitundo='git checkout -- '
 alias glog='git log --graph --decorate=full --name-status'
+alias gloga='git log --graph --decorate=full --name-status --all ^'
+alias glogf='git log --graph --decorate=full --follow -p'
+alias gnit='git diff --cached'
+alias gp='git pull'
+alias gstat='git status -s -b -u'
+alias gtree="tree -I \"$(grep -hvE '^$|^#' {,$(git rev-parse --show-toplevel 2>/dev/null)/}.gitignore $(git rev-parse --show-toplevel 2>/dev/null)/.git/info/exclude 2>/dev/null |sed 's:/$::'|tr \\n '\|')\""
 alias grep='grep -iE --color'
 alias gromdf='df -h / /var/lib/gromox /boot'
-alias gromjournal='journalctl -f -u grommunio-admin-api.service -u grommunio-antispam.service -u grommunio-cui@tty1.service -u gromox-delivery-queue.service -u gromox-delivery.service -u gromox-event.service -u gromox-http.service -u gromox-imap.service -u gromox-midb.service -u gromox-pop3.service -u gromox-timer.service -u gromox-zcore.service -u nginx.service -u php-fpm.service -u postfix.service'
+alias gromjournal='journalctl -f -u grommunio-admin-api.service -u grommunio-cui@tty1.service -u gromox-delivery-queue.service -u gromox-delivery.service -u gromox-event.service -u gromox-http.service -u gromox-imap.service -u gromox-midb.service -u gromox-pop3.service -u gromox-timer.service -u gromox-zcore.service -u nginx.service -u php-fpm.service -u postfix.service'
 alias gst='grommunio-sync-top'
 alias l='ls -lah'
 alias la='ls -lAh'
@@ -19,6 +30,12 @@ alias qdu="find -mindepth 1 -maxdepth 1 -path ./sys -prune -o -path ./proc -prun
 alias renix='nginx -t && nginx -s reload'
 alias systemctl="systemctl --no-pager"
 alias fail2list='fail2ban-client status |sed -n "s/,//g;s/.*Jail list:[[:space:]]//p"|xargs -n 1 fail2ban-client status |grep -E "^Status|Banned IP list"'
+gdiff () {
+        local N
+        test "$1" -eq "$1" && N="$1"  || N=1
+        git diff HEAD~${N} HEAD
+}
+
 
 zypup() {
 	local NEEDRESTART
@@ -42,3 +59,5 @@ if test -n "$(command -vp snapper)"; then
 	alias snapconfs='snapper list-configs --columns config |tail -n +3'
 	__delete_root_snapshots() { snapper -c root delete 0-$(snapper -c root ls |awk 'END{print $1}') ; }
 fi
+
+alias count-files='for x in . */ ; do printf "%s\t%s\n" $(find $x -type f 2>/dev/null|wc -l) $x; done |sort -n'

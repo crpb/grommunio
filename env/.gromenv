@@ -1,4 +1,4 @@
-# vim: filetype=bash
+# vim: filetype=bash ts=2 sw=2 sts=4 sr et
 # shellcheck lang=bash
 # shellcheck disable=2059,2145
 
@@ -60,7 +60,7 @@ grom_svcs="$(systemctl --output json list-units | jq -r '.[]|select(.unit|test("
 export grom_svcs
 # Grommunio Konsolen Helferlein
 _grom_query_maildir() {
-  grommunio-admin user query --filter username="${1}" maildir
+  gromox-mbop -u "${1}" echo-maildir
 }
 
 # Grommunio-Sync Screen-LOG-Reader
@@ -476,6 +476,23 @@ complete -F _comp_grom_users exmdb_get_stdFolders
 complete -F _comp_grom_users _grom_query_trashbin_count _grom_query_maildir _grom_query_trashbin_ids _grom_empty_trashbin _grom_learn_ham
 complete -F _comp_grom_users exmdb-perms 
 
+exmdb_set_perm() {
+  local owner user acl acls
+  if [[ $# -ge 3 ]]; then
+    owner="${1}"
+    user="${2}"
+    folder="${3}"
+    shift 3
+    acls="${@}"
+    grommunio-admin exmdb "${owner}" folder grant "${folder}" "${user}"
+    for folder in ${_exmdb_std_folders}; do
+      #hmmmm ... worked different $someday
+      for acl in $acls; do
+        grommunio-admin exmdb "${owner}" folder grant "${folder}" "${user}" "${acl}"
+      done
+    done
+  fi
+}
 ##SetStdFolderRights
 exmdb_set_stdFolders() {
   local owner user acl acls
@@ -530,3 +547,15 @@ grom_downsync ()
 	done;
 }
 
+_exmdb_readonly() {
+  user=$1
+  shift
+  sqlite3 -readonly $(_grom_query_maildir $user)/exmdb/exchange.sqlite3 $*
+}
+complete -F _comp_grom_users _exmdb_readonly
+_midb_readonly() {
+  user=$1
+  shift
+  sqlite3 -readonly $(_grom_query_maildir $user)/exmdb/midb.sqlite3 $*
+}
+complete -F _comp_grom_users _midb_readonly

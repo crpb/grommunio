@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
+set -e
 export HOSTNAME=${1:-NAS}
 
 zypper ref
 zypper --non-interactive install nfs-client
 
-nasip=$(host ${HOSTNAME} | cut -d' ' -f4) && myip=$(hostname -I |cut -d' ' -f1) && dir=$(showmount -e $nasip |grep -E "$myip(,|$)" |cut -d " " -f1) && mkdir -p $dir && printf "$nasip:$dir\t$dir\tnfs\trw,sync,_netdev,auto\t0\t0\n" >> /etc/fstab && mount -a
+nasip=$(host ${HOSTNAME} | cut -d' ' -f4)
+myip=$(hostname -I |cut -d' ' -f1)
+# smth like /mnt/POOLNAME/DATA/SET/BACKUPS/GROMI
+dir=$(showmount -e $nasip |grep -E "$myip(,|$)" |cut -d " " -f1)
+mkdir -p $dir
+printf "$nasip:$dir\t$dir\tnfs\trw,sync,_netdev,auto\t0\t0\n" >> /etc/fstab
+mount $dit 

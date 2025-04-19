@@ -1,19 +1,23 @@
 #!/bin/bash
+# shellcheck disable=SC2015
+[ "${FLOCKER}" != "$0" ] && exec env FLOCKER="$0" flock -en "$0" "$0" "$@" || :
 export PATH=/sbin:/usr/sbin:/usr/bin:/bin
 set -e
 recover_svcs() {
-  /usr/bin/systemctl start gromox-midb.service gromox-imap.service gromox-pop3.service
-  if [ -d "$SNAPPATH" ]; then
-	  umount "$SNAPPATH"
-	  /usr/sbin/lvremove -y /dev/gromox/s_maildir 
-  fi
+	/usr/bin/systemctl start gromox-midb.service gromox-imap.service gromox-pop3.service
+	if [ -d "$SNAPPATH" ]; then
+		umount "$SNAPPATH"
+		/usr/sbin/lvremove -y /dev/gromox/s_maildir
+	fi
 }
 trap "recover_svcs" ERR
+
+date -Is
 
 SERVICES=( gromox-midb.service gromox-imap.service gromox-pop3.service )
 
 BACKUPROOT=$(awk '/grom.*nfs/ {print $2}' /etc/fstab)
-GROMOXSRC=/var/lib/gromox 
+GROMOXSRC=/var/lib/gromox
 
 #LASTBACKUPDIR=$(basename $(ls -td $BACKUPROOT/grombak/* | head -1))
 #NEWBACKUPDIR="$BACKUPROOT/grombak/$(date +%Y%m%d-%H%M)"
@@ -28,46 +32,46 @@ MYSQLDUMPOPTS="--single-transaction --routines --triggers --events --add-drop-da
 
 #Check if dir exists or exit
 if [ ${#BACKUPROOT} -gt 0 ]; then
-  if grep -qs "${BACKUPROOT}" /proc/mounts; then
-    #echo "NFS-Mount available."
-    true
-  else
-    echo "${BACKUPROOT} not mounted."
-    #    mount "${BACKUPROOT}"
-    if mount "${BACKUPROOT}"; then
-      echo "Successfully mounted ${BACKUPROOT}"
-    else
-      echo "Failed to mount ${BACKUPROOT}, exiting."
-      exit 1
-    fi
-  fi
+	if grep -qs "${BACKUPROOT}" /proc/mounts; then
+		#echo "NFS-Mount available."
+		true
+	else
+		echo "${BACKUPROOT} not mounted."
+		#    mount "${BACKUPROOT}"
+		if mount "${BACKUPROOT}"; then
+			echo "Successfully mounted ${BACKUPROOT}"
+		else
+			echo "Failed to mount ${BACKUPROOT}, exiting."
+			exit 1
+		fi
+	fi
 else
-  echo "Couldn't mount backup directory, exiting."
-  exit 1
+	echo "Couldn't mount backup directory, exiting."
+	exit 1
 fi
 
 #get mysql-info's and `eval` so they will be available as var
 MYSQL_CFG="/etc/gromox/mysql_adaptor.cfg"
 if [ ! -e "${MYSQL_CFG}" ] ; then
-  echo "MySQL configuration not found. ($MYSQL_CFG)"
-  exit 1
+	echo "MySQL configuration not found. ($MYSQL_CFG)"
+	exit 1
 fi
 MYSQL_USERNAME=$(sed -ne 's/^mysql_username\s*=\s*\(.*\)/\1/p' ${MYSQL_CFG})
 if [ -z "$MYSQL_USERNAME" ]; then
-  MYSQL_USERNAME="root"
+	MYSQL_USERNAME="root"
 fi
 MYSQL_PASSWORD=$(sed -ne 's/^mysql_password\s*=\s*\(.*\)/\1/p' ${MYSQL_CFG})
 MYSQL_DBNAME=$(sed -ne 's/^mysql_dbname\s*=\s*\(.*\)/\1/p' ${MYSQL_CFG})
 if [ -z "$MYSQL_DBNAME" ]; then
-  MYSQL_DBNAME="grommunio"
+	MYSQL_DBNAME="grommunio"
 fi
 if [ "${MYSQL_DBNAME:0:1}" = "-" ]; then
-  echo "Cannot use that dbname: ${MYSQL_DBNAME}"
-  exit 1
+	echo "Cannot use that dbname: ${MYSQL_DBNAME}"
+	exit 1
 fi
 MYSQL_HOST=$(sed -ne 's/^mysql_host\s*=\s*\(.*\)/-h\1/p' ${MYSQL_CFG})
 if [ -z "$MYSQL_HOST" ]; then
-  MYSQL_HOST="localhost"
+	MYSQL_HOST="localhost"
 fi
 #MYSQL_QUERY="SELECT username,maildir from users where id <> 0 and maildir <> \"\";"
 
@@ -82,34 +86,39 @@ CONFFILE
 cleanup() { rm -f "$CONFIG_FILE" ; }
 trap cleanup EXIT
 
-date -Is
-echo "Restarting ${SERVICES[@]/.service/}"
+echo "Runtime: $SECONDS seconds"
+echo "Reloading ${SERVICES[*]/.service/}"
 # restart services to/and cleanup sqlites
-/usr/bin/systemctl restart ${SERVICES[@]}
-date -Is
+# shellcheck disable=SC2086,SC2048
+/usr/bin/systemctl reload-restart ${SERVICES[*]}
+echo "Runtime: $SECONDS seconds"
 echo "Running cleanup tasks for Mailboxes"
-for d in $(grommunio-admin user query maildir |sed '/^$/d'); do
-  /usr/sbin/gromox-mbop -d $d purge-softdelete -t 30d -r IPM_SUBTREE
-  /usr/sbin/gromox-mbop -d $d purge-datafiles
-  /usr/sbin/gromox-mbop -d $d vacuum
-done
-date -Is
+# for d in $(grommunio-admin user query maildir |sed '/^$/d'); do
+# 	/usr/sbin/gromox-mbop -d "$d" purge-softdelete -t 30d -r IPM_SUBTREE
+# 	/usr/sbin/gromox-mbop -d "$d" purge-datafiles
+# 	/usr/sbin/gromox-mbop -d "$d" vacuum
+# done
+trashbin_purgetime=7d
+softdelete_purgetime=30d
+/usr/sbin/gromox-mbop foreach.here.mb \( purge-softdelete -t "${softdelete_purgetime}" -r / \) \( purge-datafiles \) \( emptyfld -R --delempty -t "${trashbin_purgetime}" DELETED \)
+
+echo "Runtime: $SECONDS seconds"
 
 # Try to create a LVM-Snapshot
 DISKSOURCE=$(findmnt /var/lib/gromox --noheadings --output SOURCE)
 # Check if it is a lvm volume
 if lvdisplay "$DISKSOURCE" >/dev/null; then
-  echo "LVM-Snapshot"
-  date -Is
-  if /sbin/lvcreate -l100%FREE --snapshot --name s_maildir /dev/gromox/maildir; then
-    ## TEMPORARY MOUNT POINT
-    SNAPPATH=$(mktemp --suffix=lvmsnap --directory)
-    ## MOUNT XFS ( we need -o nouuid as xfs doesn't like duplicates of UUIDs )
-    /usr/bin/mount -o nouuid /dev/gromox/s_maildir "$SNAPPATH"
-    GROMOXSRC=$SNAPPATH
-    date -Is
-    echo "Snapshot created and mounted."
-  fi
+	echo "LVM-Snapshot"
+	echo "Runtime: $SECONDS seconds"
+	if /sbin/lvcreate -l100%FREE --snapshot --name s_maildir /dev/gromox/maildir; then
+		## TEMPORARY MOUNT POINT
+		SNAPPATH=$(mktemp --suffix=lvmsnap --directory)
+		## MOUNT XFS ( we need -o nouuid as xfs doesn't like duplicates of UUIDs )
+		/usr/bin/mount -o nouuid /dev/gromox/s_maildir "$SNAPPATH"
+		GROMOXSRC=$SNAPPATH
+		echo "Runtime: $SECONDS seconds"
+		echo "Snapshot created and mounted."
+	fi
 fi
 # Whether we have a snapshot or not, we can start the Services again.
 #echo "Starting midb/pop3/imap services"
@@ -117,44 +126,46 @@ fi
 #/usr/bin/systemctl start ${SERVICES[@]}
 
 #CREATE BACKUPDIRS
-mkdir -p ${NEWBACKUPDIR}/{confs,mysql,fs} || echo "[ERROR] could not create Directories in ${BACKUPROOT}"
+mkdir -p "${NEWBACKUPDIR}"/{confs,mysql,fs} || echo "[ERROR] could not create Directories in ${BACKUPROOT}"
 
 #CONFIGS
-date -Is
+echo "Runtime: $SECONDS seconds"
 echo "Creating archive of etc-configs"
 cd /
 find /etc -maxdepth 1 -type d -iregex ".*\(${ETCFLDS}\).*" -exec tar -czf "${NEWBACKUPDIR}/confs/etc.tar.gz" {} +  || echo "[ERROR] config-files"
 ls -sh "${NEWBACKUPDIR}/confs/etc.tar.gz"
 #MYSQLDUMP
 # shellcheck disable=SC2154
-date -Is
+echo "Runtime: $SECONDS seconds"
 echo "Creating mysqldump"
 COMMAND="mysqldump --defaults-file=${CONFIG_FILE} -B ${MYSQL_DBNAME} ${MYSQLDUMPOPTS}"
 $COMMAND > "${NEWBACKUPDIR}/mysql/${MYSQL_DBNAME}.sql" || (echo "[ERROR] ${COMMAND}")
-ls -sh "${NEWBACKUPDIR}/mysql/${MYSQL_DBNAME}.sql" 
+ls -sh "${NEWBACKUPDIR}/mysql/${MYSQL_DBNAME}.sql"
 
 #RSYNC
-date -Is
+echo "Runtime: $SECONDS seconds"
 echo "Starting Rsync of $GROMOXSRC"
 #COMMAND="rsync ${RSYNCOPTS} --log-file $NEWBACKUPDIR/rsync.log --link-dest ../$LASTBACKUPDIR ${GROMOXSRC[@]} $NEWBACKUPDIR/fs"
-echo > $NEWBACKUPDIR/rsync.log
+echo > "$NEWBACKUPDIR"/rsync.log
 COMMAND="rsync ${RSYNCOPTS} --log-file $NEWBACKUPDIR/rsync.log $GROMOXSRC/* $NEWBACKUPDIR/fs"
 #rm -rf ${LATESTBACKUPDIR}
 time -p $COMMAND || echo "[ERROR] ${COMMAND}"
 
 # cleanup working snapshot
-if [ -d "$SNAPPATH" ]; then 
+if [ -d "$SNAPPATH" ]; then
 	echo "Deleting snapshot $SNAPPATH"
 	umount -v "$SNAPPATH"
-	/usr/sbin/lvremove -y /dev/gromox/s_maildir 
+	/usr/sbin/lvremove -y /dev/gromox/s_maildir
 fi
 
 echo
-/bin/date -Is
+echo "Runtime: $SECONDS seconds"
 echo "Data usage:"
 echo "grommunio-admin fs du:"
 time -p /usr/sbin/grommunio-admin fs du
 echo
-echo "Backup directory:"
-time -p /usr/bin/du -hs "${BACKUPROOT}"
+#echo "Backup directory:"
+#time -p /usr/bin/du -hs "${BACKUPROOT}"
+echo
+echo "Runtime: $SECONDS seconds"
 date -Is

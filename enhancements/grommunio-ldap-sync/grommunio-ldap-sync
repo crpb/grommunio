@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+#set -e
 orgs=$(grommunio-admin domain query --format=csv orgID 2>/dev/null |uniq | sed '/^orgID/d;s/\r/ /g');
 if [ -n "$orgs" ]; then
 	output=$(for org in $orgs; do

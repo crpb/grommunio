@@ -4,7 +4,7 @@ set -e
 QUEUE="${QUEUE:-/var/lib/gromox/queue}"
 j=0
 find "$QUEUE"/save -type f| while read -r saved; do
-        mess="$QUEUE/mess/$(date +%s)-$j"
+        mess="$QUEUE/mess/$(date +%s)$j"
         mv "$saved" "$mess"
         j=$((j+1))
         echo "requeued ${saved##*/} as ${mess##*/}"

@@ -25,7 +25,7 @@ defaults user.pop3_imap true
 #defaults user.properties.storagequotalimit    "$(gb 1.8)"
 defaults domain.maxUser 25
 defaults user.smtp false
-defaults domain.chat true
+defaults domain.chat false
 defaults user.changePassword false
 defaults user.privChat false
 defaults user.privVideo false
@@ -50,9 +50,14 @@ postconf message_size_limit "$(mb 50)"
 postconf smtp_sasl_auth_enable yes
 postconf smtp_sasl_security_options noanonymous
 postconf smtp_use_tls yes
-postconf smtpd_tls_mandatory_protocols '!SSLv2,!SSLv3,!TLSv1,!TLSv1.1'
-postconf smtpd_tls_protocols '!SSLv2,!SSLv3,!TLSv1,!TLSv1.1'
+postconf smtpd_tls_mandatory_protocols '>=TLSv1.2,<=TLSv1.3'
+postconf smtpd_tls_protocols '>=TLSv1.2,<=TLSv1.3'
 # - Relay-Host
 table='lmdb' ; postconf -m |grep -q $table || table='hash'
 postconf smtp_sasl_password_maps "${table}:/etc/postfix/sasl_passwd"
 # the rest via ./postfix/postfix.sh for now. or just from you config-mgmt :P
+cat << 'EOF'
+
+For relayhost configuration run ./postfix/postfix.sh
+
+EOF
