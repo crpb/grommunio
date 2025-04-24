@@ -24,6 +24,5 @@ command mysql grommunio --skip-column-names --execute="$MQUERY" |
 		"result": %s }}\n\n' \
 			"$username" "$maildir" \
 			"$(echo "${VIEWS};${SELECT}" |
-			command sqlite3 -readonly -json
-		"$maildir/exmdb/exchange.sqlite3")";
+			command sqlite3 -readonly -json "$maildir/exmdb/exchange.sqlite3")";
 	done

@@ -1,0 +1,84 @@
+###############################################################################
+# SNIPPETS
+###############################################################################
+# Run bulk calls with grommunio-admin shell
+###############################################################################
+# time bash -c 'BULK...' -> real    0m1.046s user    0m0.865s sys     0m0.143s 
+# vs. a loop
+# time bash -c 'while read..' -> real    0m21.029s user    0m18.082s sys     0m2.854s 
+
+MBXS=$(gromox-mbop foreach.mb echo-username)
+BULK=$(for user in $MBXS; do printf "exmdb %s store get\n" "$user"; done)
+grommunio-admin shell -n <<< "$BULK" 2>/dev/null
+
+# or quick and dirty..
+grommunio-admin shell -n <<< "$(for user in $(gromox-mbop foreach.mb echo-username); do printf "exmdb %s store get normalmessagesizeextended \n" "$user"; done)"
+
+# a little bit easier to parse
+STUFF="prohibitreceivequota prohibitsendquota assocmessagesizeextended normalmessagesizeextended"
+grommunio-admin shell -n <<< "$(for user in $(gromox-mbop foreach.mb echo-username); do printf "exmdb %s store get %s \n" "$user" "$STUFF" ; done)" 2>/dev/null | awk '{ if ($1=="exmdb") { print $2} else if ($1=="tag" && $2=="value") {next} else { print } }'
+
+# another variant 
+STUFF="prohibitreceivequota prohibitsendquota assocmessagesizeextended normalmessagesizeextended";
+...  2>/dev/null |awk '{ if ($1=="exmdb") { mailbox=$2} else if ($1=="tag" && $2=="value") {next} else { print mailbox, $0 } }'
+
+# or as json by @deajan
+# from https://github.com/netinvent/grommunio_exporter/blob/main/grommunio_exporter/grommunio_api.py#L197C54-L197C267
+...   | awk 'BEGIN {printf "[["} {if ($1=="") {next}; if ($1=="exmdb") {sep=""; if (first==1) { printf "],["} else {first=1}}; if ($1~/^0x/) {next} ; printf"\n%s{\"%s\": \"%s\"}", sep,$1,$2; sep=","} END { printf "]]" 
+
+# Getting greedy!
+## sure i could have made that first thing not call a hundred different programs... 
+STUFF="$(grommunio-admin taginfo '*' | awk '{gsub(/,/,"", $3); printf "%s ", tolower($3)}')" ; time grommunio-admin shell -n <<< "$(for user in $(gromox-mbop foreach.mb echo-username); do printf "exmdb %s store get %s \n" "$user" "$STUFF" ;done)"  2>/dev/null |sed '/^$/d' |awk '{ if ($1=="exmdb") { mailbox=$2} else if ($1=="tag" && $2=="value") {next} else { printf "%s\t%s\n", mailbox, $0 } }'
+
+
+
+###############################################################################
+# BULK OBJECT MOVING VIA SQLITE (handle with care!)
+###############################################################################
+# THIS MIGHT BE A DESTRUCTIVE TASK SO DON'T DO THIS IN YOUR LIFE SYSTEM FOR FUN
+###############################################################################
+
+sqlite>  SELECT distinct(p.folder_id),
+   ...>           p.parent_id,
+   ...>           f1.propval AS foldername
+   ...>      FROM folders p
+   ...>      JOIN folder_properties f1
+   ...>        ON f1.folder_id = p.folder_id
+   ...>       AND f1.proptag = 805371935
+   ...>     ORDER BY p.folder_id;
+1||Root Container
+2|1|Deferred Action
+3|1|Spooler Queue
+4|1|Shortcuts
+5|1|Finder
+6|1|Views
+7|1|Common Views
+8|1|Schedule
+9|1|Top of Information Store
+10|9|Sent Items
+11|9|Deleted Items
+12|9|Outbox
+13|9|Inbox
+14|9|Drafts
+15|9|Calendar
+16|9|Journal
+17|9|Notes
+18|9|Tasks
+19|9|Contacts
+20|19|Quick Contacts
+21|19|IM Contacts List
+22|19|GAL Contacts
+23|9|Junk Email
+24|1|Freebusy Data
+25|9|Sync Issues
+26|25|Conflicts
+27|25|Local Failures
+28|25|Server Failures
+29|9|Conversation Action Settings
+258|1|Reminders
+259|1|To-do Search
+sqlite> update messages set parent_fid = 11 where parent_fid = 13;
+sqlite> select count(*) from messages WHERE parent_fid = 13;
+0
+sqlite> select count(*) from messages WHERE parent_fid = 11;
+110236
