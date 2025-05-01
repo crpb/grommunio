@@ -1,0 +1,64 @@
+Evaluate the spam flag in the mail header. If set, move the message to the junk folder.
+--- a/exch/exmdb/message.cpp
++++ b/exch/exmdb/message.cpp
+@@ -38,6 +38,7 @@
+ #include <gromox/rop_util.hpp>
+ #include <gromox/scope.hpp>
+ #include <gromox/svc_common.h>
++#include <gromox/textmaps.hpp>
+ #include <gromox/usercvt.hpp>
+ #include <gromox/util.hpp>
+ #include "bounce_producer.hpp"
+@@ -3661,7 +3662,14 @@
+ 		    pdb->psqlite, PR_OOF_STATE, &pvalue))
+ 			return FALSE;
+ 		b_oof = pvb_disabled(pvalue);
+-		fid_val = PRIVATE_FID_INBOX;
++		if (pmsg->proplist.has(PR_SPAM_FLAG)) {
++		    fid_val = PRIVATE_FID_JUNK;
++		    mlog(LV_DEBUG, "from=<%s> to=<%s> SPAM flag is set",
++		        znul(from_address), account);
++		}
++		else {
++		    fid_val = PRIVATE_FID_INBOX;
++		}
+ 	} else {
+ 		b_oof = false;
+ 		//TODO get public folder id
+@@ -3755,9 +3763,9 @@
+ 				return FALSE;
+ 		}
+ 	}
+-	mlog(LV_DEBUG, "to=%s from=%s fid=%llu delivery mid=%llu (%s)", account.c_str(),
+-		znul(from_address), LLU{fid_val}, LLU{message_id},
+-		partial ? " (partial only)" : "");
++	mlog(LV_NOTICE, "from=<%s> to=<%s> delivery folder=<%s> message-id=<%llu> %s",
++		znul(from_address), account.c_str(), folder_namedb_get("en", LLU{fid_val}),
++		LLU{message_id}, partial ? "(partial only)" : "");
+ 	if (dlflags & DELIVERY_DO_RULES) {
+ 		auto ec = message_rule_new_message({from_address, account.c_str(), cpid, b_oof,
+ 		          pdb->psqlite, fid_val, message_id, std::move(digest)}, seen);
+--- a/include/gromox/mapitags.hpp
++++ b/include/gromox/mapitags.hpp
+@@ -734,6 +734,7 @@
+ 	INCRSYNCPROGRESSMODE = PROP_TAG(PT_BOOLEAN, 0x4074),
+ 	INCRSYNCPROGRESSPERMSG = PROP_TAG(PT_BOOLEAN, 0x4075),
+ 	PR_CONTENT_FILTER_SCL = PROP_TAG(PT_LONG, 0x4076), /* PidTagContentFilterSpamConfidenceLevel */
++	PR_SPAM_FLAG = PROP_TAG(PT_BOOLEAN, 0x4077),
+ 	PR_SENDER_ID_STATUS = PROP_TAG(PT_LONG, 0x4079), /* PidTagSenderIdStatus */
+ 	MetaTagIncrementalSyncMessagePartial = PROP_TAG(PT_LONG, 0x407A),
+ 	INCRSYNCGROUPINFO = PROP_TAG(PT_BINARY, 0x407B),
+--- a/lib/mapi/oxcmail.cpp
++++ b/lib/mapi/oxcmail.cpp
+@@ -1248,6 +1248,11 @@
+ 		               PR_ATTACH_PAYLOAD_CLASS : PR_ATTACH_PAYLOAD_CLASS_A;
+ 		if (penum_param->pmsg->proplist.set(tag, field) != 0)
+ 			return FALSE;
++	} else if ((strcasecmp(key, "X-Spam") == 0 ||
++		strcasecmp(key, "X-Spam-Flag") == 0) && strcasecmp(field, "Yes") == 0) {
++		tmp_byte = 1;
++		if (penum_param->pmsg->proplist.set(PR_SPAM_FLAG, &tmp_byte) != 0)
++			return FALSE;
+ 	} else if (strcasecmp(key, "X-MS-Exchange-Organization-PRD") == 0) {
+ 		uint32_t tag = str_isascii(field) ?
+ 		               PR_PURPORTED_SENDER_DOMAIN : PR_PURPORTED_SENDER_DOMAIN_A;
