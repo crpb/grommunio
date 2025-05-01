@@ -35,7 +35,7 @@ STUFF="$(grommunio-admin taginfo '*' | awk '{gsub(/,/,"", $3); printf "%s ", tol
 ###############################################################################
 # BULK OBJECT MOVING VIA SQLITE (handle with care!)
 ###############################################################################
-# THIS MIGHT BE A DESTRUCTIVE TASK SO DON'T DO THIS IN YOUR LIFE SYSTEM FOR FUN
+# THIS MIGHT BE A DESTRUCTIVE TASK SO DON'T DO THIS IN YOUR LIVE SYSTEM FOR FUN
 ###############################################################################
 
 sqlite>  SELECT distinct(p.folder_id),

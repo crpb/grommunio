@@ -99,7 +99,7 @@ MYSQL_CMD="mysql --defaults-file=${CONFIG_FILE} ${MYSQL_PARAMS}"
 # shellcheck disable=SC2068
 if ${MYSQL_CMD}<<<"exit"&>/dev/null; then
   ${MYSQL_CMD} --execute "${MYSQL_QUERY}" | while read -r USERNAME MAILDIR; do
-  sqlite3 -tabs -noheader "${MAILDIR}/exmdb/exchange.sqlite3" "$SQLITE_QUERY" |
+  sqlite3 -readonly -tabs -noheader "${MAILDIR}/exmdb/exchange.sqlite3" "$SQLITE_QUERY" |
     while read -r MESSAGEID MIDSTRING; do
       MBOP_CMD="$(command -v gromox-mbop)"
       MBOP_CMD="$MBOP_CMD -u "$USERNAME" delmsg"

@@ -3,9 +3,9 @@ Description=Daily ham classification, training and cleanup run
 
 [Timer]
 OnCalendar=*:5/30
-AccuracySec=1m
+AccuracySec=5m
 Persistent=true
-RandomizedDelaySec=60
+RandomizedDelaySec=180
 
 [Install]
 WantedBy=timers.target

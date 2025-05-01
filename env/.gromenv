@@ -109,7 +109,7 @@ _grom_query_trashbin_count() {
       user="$1"
       mdir="$(_grom_query_maildir ${user})/exmdb/exchange.sqlite3"
       sel="select count(message_id) from messages where parent_fid=0xb;"
-      echo $(sqlite3 ${mdir} "${sel}")
+      echo $(sqlite3 -readonly ${mdir} "${sel}")
     fi
   fi
 }
@@ -121,7 +121,7 @@ _grom_query_trashbin_ids() {
     if [[ $_grom_users =~ $1 ]]; then
       mdir="$(_grom_query_maildir $1)/exmdb/exchange.sqlite3"
       sel="select message_id from messages where parent_fid=0xb;"
-      printf '%s ' "$(sqlite3 ${mdir} "${sel}")"
+      printf '%s ' "$(sqlite3 -readonly ${mdir} "${sel}")"
     fi
   fi
 }
@@ -311,7 +311,7 @@ _grom_learn_ham() {
         printf 'Folder Non-Junk found for User: %s with Folder-ID: %s\n' "${USR}" "${FLD}" | systemd-cat -t grom_learn_ham
         MBX="$(_grom_query_maildir ${USR})"
         QRY="select message_id,mid_string from messages where parent_fid=${FLD};"
-        sqlite3 -tabs -noheader "${MBX}/exmdb/exchange.sqlite3" "${QRY}" | while read -r ID MID; do
+        sqlite3 -readonly -tabs -noheader "${MBX}/exmdb/exchange.sqlite3" "${QRY}" | while read -r ID MID; do
           if ! test -z $MID; then
             rspamc learn_ham "${MBX}/eml/${MID}" | systemd-cat -t grom_learn_ham
           else
@@ -363,7 +363,7 @@ WHERE p.username != 'default';
 "
     # True if FILE exists and is readable.
     if [ -r "$EXMDB" ]; then
-      PFLDS="$(echo "$SQLQUERY" | sqlite3 --readonly --noheader "$EXMDB")"
+      PFLDS="$(echo "$SQLQUERY" | sqlite3 -readonly --readonly -noheader "$EXMDB")"
       if [ "${#PFLDS}" -eq 0 ]; then
         echo "No special permissions in MBX: $OWNER"
         return 0
@@ -403,7 +403,7 @@ WHERE p.username != 'default';
 "
     # True if FILE exists and is readable.
     if [ -r "$EXMDB" ]; then
-      PFLDS="$(echo "$SQLQUERY" | sqlite3 --readonly --noheader "$EXMDB")"
+      PFLDS="$(echo "$SQLQUERY" | sqlite3 -readonly -noheader "$EXMDB")"
       if [ "${#PFLDS}" -eq 0 ]; then
         echo "No special permissions in MBX: $OWNER"
         return 0
