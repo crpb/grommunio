@@ -82,3 +82,11 @@ sqlite> select count(*) from messages WHERE parent_fid = 13;
 0
 sqlite> select count(*) from messages WHERE parent_fid = 11;
 110236
+
+
+###############################################################################
+# create testdata in all mailboxes (genmails from src:gromox/tools/genmails)
+###############################################################################
+# zypper in gnu_parallel / apt-get install parallel
+###############################################################################
+users=( $(gromox-mbop foreach.mb echo-username) );  parallel --jobs "${#users}" "/root/scripts/tools/genmails 100 |sed '/To:/ s/user@example.com/'{1}'/' | gromox-mbox2mt  -  | gromox-mt2exm -D -u {1}" ::: ${users[@]} ::: {1..10}
