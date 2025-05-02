@@ -38,19 +38,24 @@ gdiff () {
 
 
 zypup() {
-	local NEEDRESTART
-	zypp-refresh
-	zypper --verbose --no-refresh up
-	if [ -f /var/lib/check_mk_agent/cache/plugins_mk_zypper.cache ]; then
-		rm -vf /var/lib/check_mk_agent/cache/plugins_mk_zypper.cache
-	fi
-	NEEDRESTART=$(zypper ps --print "systemctl status %s" | awk '/systemctl status / { line = (line? line FS $3: $3) } END { print line }')
-	if test -n "$NEEDRESTART"; then
-		echo "There are Services which might need a restart"
-		echo -e "\v\t$NEEDRESTART\v"
-		read -r -p "Want to restart them now? [y/N] " DORESTART
-		if [[ "$DORESTART" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-			systemctl restart $NEEDRESTART
+  	if test -f /etc/debian_version; then
+		apt-get update -q
+		apt-get dist-upgrade
+	else
+		local NEEDRESTART
+		zypp-refresh
+		zypper --verbose --no-refresh up
+		if [ -f /var/lib/check_mk_agent/cache/plugins_mk_zypper.cache ]; then
+			rm -vf /var/lib/check_mk_agent/cache/plugins_mk_zypper.cache
+		fi
+		NEEDRESTART=$(zypper ps --print "systemctl status %s" | awk '/systemctl status / { line = (line? line FS $3: $3) } END { print line }')
+		if test -n "$NEEDRESTART"; then
+			echo "There are Services which might need a restart"
+			echo -e "\v\t$NEEDRESTART\v"
+			read -r -p "Want to restart them now? [y/N] " DORESTART
+			if [[ "$DORESTART" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				systemctl restart $NEEDRESTART
+			fi
 		fi
 	fi
 }

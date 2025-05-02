@@ -2,6 +2,18 @@
 # shellcheck lang=bash
 # shellcheck disable=2059,2145
 
+
+# FARBSPIELE #
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+function red { printf "${RED}$@${NC}\n"; }
+function green { printf "${GREEN}$@${NC}\n"; }
+function yellow { printf "${YELLOW}$@${NC}\n"; }
+function blue { printf "${BLUE}$@${NC}\n"; }
+
 # Show Disk-Usage of all BTRFS-Volumes
 du_btrfs() { mount -t btrfs | awk '!/snapshots/ {print $3}' | xargs -n 1 du -hsx | sort -h; }
 usage_btrfs() {
@@ -44,18 +56,6 @@ if ! command -v register-python-argcomplete &>/dev/null; then
 else
   eval "$(register-python-argcomplete grommunio-admin --complete)"
 fi
-
-# FARBSPIELE #
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-function red { printf "${RED}$@${NC}\n"; }
-function green { printf "${GREEN}$@${NC}\n"; }
-function yellow { printf "${YELLOW}$@${NC}\n"; }
-function blue { printf "${BLUE}$@${NC}\n"; }
-
 grom_svcs="$(systemctl --output json list-units | jq -r '.[]|select(.unit|test("(^grom.*|nginx|.*fpm).service")).unit')"
 export grom_svcs
 # Grommunio Konsolen Helferlein
