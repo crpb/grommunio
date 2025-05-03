@@ -8,7 +8,7 @@
 # time bash -c 'while read..' -> real    0m21.029s user    0m18.082s sys     0m2.854s 
 
 MBXS=$(gromox-mbop foreach.mb echo-username)
-BULK=$(for user in $MBXS; do printf "exmdb %s store get\n" "$user"; done)
+BULK="$(printf "exmdb %s store get\n" $MBXS)" 
 grommunio-admin shell -n <<< "$BULK" 2>/dev/null
 
 # or quick and dirty..
