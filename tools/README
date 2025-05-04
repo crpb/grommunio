@@ -113,3 +113,10 @@ for user in $(gromox-mbop foreach.mb echo-username); do
     gromox-mbop -u "$user" get-websettings > "$user".json ; 
    jq '.settings.zarafa.v1.contexts.mail.delegate_sent_items_style = "both"' <(gromox-mbop -u "$user" get-websettings)  | gromox-mbop -u "$user" set-websettings - ;
 doneo
+
+
+###############################################################################
+# PURGE ALL DATA FROM A MAILBOX /ó\
+###############################################################################
+
+gromox-mbop foreach.here.mb \( Aecho-username \) \( Aemptyfld --nuke-folders IPM_SUBTREE \) \( Apurge-softdelete -r IPM_SUBTREE \) \( Apurge-datafiles \) \( Avacuum \) \( Arecalc-sizes \) \( Aunload \)
