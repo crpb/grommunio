@@ -90,3 +90,26 @@ sqlite> select count(*) from messages WHERE parent_fid = 11;
 # zypper in gnu_parallel / apt-get install parallel
 ###############################################################################
 users=( $(gromox-mbop foreach.mb echo-username) );  parallel --jobs "${#users}" "/root/scripts/tools/genmails 100 |sed '/To:/ s/user@example.com/'{1}'/' | gromox-mbox2mt  -  | gromox-mt2exm -D -u {1}" ::: ${users[@]} ::: {1..10}
+
+
+###############################################################################
+# Bulkupdate web-settings?
+###############################################################################
+# TEST IF BONKERS WOULD WORK
+###############################################################################
+
+# jq '.settings.zarafa.v1.contexts.mail.delegate_sent_items_style = "both"' <(gromox-mbop -u cb@clownflare.de get-websettings) |grep delegate
+            "delegate_sent_items_style": "both"
+# jq '.settings.zarafa.v1.contexts.mail.delegate_sent_items_style = "delegate"' <(gromox-mbop -u cb@clownflare.de get-websettings) |grep delegate
+            "delegate_sent_items_style": "delegate"
+# jq '.settings.zarafa.v1.contexts.mail.delegate_sent_items_style = ""' <(gromox-mbop -u cb@clownflare.de get-websettings) |grep delegate
+            "delegate_sent_items_style": ""
+
+###############################################################################
+# RUN UPDATE ON ALL MAILBOXES
+###############################################################################
+for user in $(gromox-mbop foreach.mb echo-username); do 
+    # the next line is just to take a backup, nothing more
+    gromox-mbop -u "$user" get-websettings > "$user".json ; 
+   jq '.settings.zarafa.v1.contexts.mail.delegate_sent_items_style = "both"' <(gromox-mbop -u "$user" get-websettings)  | gromox-mbop -u "$user" set-websettings - ;
+doneo
