@@ -24,7 +24,7 @@ STUFF="prohibitreceivequota prohibitsendquota assocmessagesizeextended normalmes
 
 # or as json by @deajan
 # from https://github.com/netinvent/grommunio_exporter/blob/main/grommunio_exporter/grommunio_api.py#L197C54-L197C267
-...   | awk 'BEGIN {printf "[["} {if ($1=="") {next}; if ($1=="exmdb") {sep=""; if (first==1) { printf "],["} else {first=1}}; if ($1~/^0x/) {next} ; printf"\n%s{\"%s\": \"%s\"}", sep,$1,$2; sep=","} END { printf "]]" 
+...   | awk 'BEGIN {printf "[["} {if ($1=="") {next}; if ($1=="exmdb") {sep=""; if (first==1) { printf "],["} else {first=1}}; if ($1~/^0x/) {next} ; printf"\n%s{\"%s\": \"%s\"}", sep,$1,$2; sep=","} END { printf "]]" }'
 
 # Getting greedy!
 ## sure i could have made that first thing not call a hundred different programs... 
