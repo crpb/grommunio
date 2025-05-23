@@ -31,6 +31,9 @@ STUFF="prohibitreceivequota prohibitsendquota assocmessagesizeextended normalmes
 STUFF="$(grommunio-admin taginfo '*' | awk '{gsub(/,/,"", $3); printf "%s ", tolower($3)}')" ; time grommunio-admin shell -n <<< "$(for user in $(gromox-mbop foreach.mb echo-username); do printf "exmdb %s store get %s \n" "$user" "$STUFF" ;done)"  2>/dev/null |sed '/^$/d' |awk '{ if ($1=="exmdb") { mailbox=$2} else if ($1=="tag" && $2=="value") {next} else { printf "%s\t%s\n", mailbox, $0 } }'
 
 
+# json jq gefuddel™ 
+STUFF="$(grommunio-admin taginfo '*' | awk '{gsub(/,/,"", $3); printf "%s ", tolower($3)}')";  grommunio-admin shell -n <<< "$(for user in $(gromox-mbop foreach.mb echo-username); do printf "exmdb %s store get %s --format=json-kv\n" "$user" "$STUFF" ;done)"  2>/dev/null |sed '/^$/d' |awk '{ if ($1=="exmdb") { mailbox=$2 } else if ($1=="tag" && $2=="value") {next} else { printf "%s\t%s\n", mailbox, $0 } }' |while IFS=$'\t' read -r username json; do jq --arg username "$username" '{mbx: $username, exmdb: .}' <<< "$json"; done
+
 
 ###############################################################################
 # BULK OBJECT MOVING VIA SQLITE (handle with care!)
