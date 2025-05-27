@@ -6,7 +6,7 @@ eval 'exec perl -S $0 "$@"'
 
 pflogsumm - Produce Postfix MTA logfile summary
 
-Copyright (C) 1998-2010 by James S. Seymour, Release 1.1.5
+Copyright (C) 1998-2025 by James S. Seymour, Release 1.1.6
 
 =head1 SYNOPSIS
 
@@ -402,7 +402,7 @@ eval { require Date::Calc };
 my $hasDateCalc = $@ ? 0 : 1;
 
 my $mailqCmd = "mailq";
-my $release = "1.1.5";
+my $release = "1.1.6";
 
 # Variables and constants used throughout pflogsumm
 use vars qw(
@@ -617,8 +617,10 @@ End_Of_HELP_DATE_CALC
 ($dateStr, $dateStrRFC3339) = get_datestrs($opts{'d'}) if(defined($opts{'d'}));
 
 # debugging
-#open(UNPROCD, "> unprocessed") ||
-#    die "couldn't open \"unprocessed\": $!\n";
+my $unProcdFN = 'unprocessed';
+my $unProcd;
+#open($unProcd, "> $unProcdFN") ||
+#    die "couldn't open \"$unProcdFN\": $!\n";
 
 while(<>) {
     next if(defined($dateStr) && ! (/^${dateStr} / || /^${dateStrRFC3339}T/));
@@ -642,7 +644,7 @@ while(<>) {
     unless((($cmd, $qid) = $logRmdr =~ m#^(?:postfix|$syslogName)(?:/(?:smtps|submission))?/([^\[:]*).*?: ([^:\s]+)#o) == 2 ||
            (($cmd, $qid) = $logRmdr =~ m#^((?:postfix)(?:-script)?)(?:\[\d+\])?: ([^:\s]+)#o) == 2)
     {
-	#print UNPROCD "$_";
+	print $unProcd "$_" if $unProcd;
 	next;
     }
     chomp;
@@ -898,7 +900,7 @@ while(<>) {
 		++${$msgsPerDay{$revMsgDateStr}}[3];
 		++$msgsBncd;
 	    } else {
-#		print UNPROCD "$_\n";
+		print $unProcd "$_\n" if $unProcd;
 	    }
 	}
 	elsif($cmd eq 'pickup' && $logRmdr =~ /: (sender|uid)=/) {
@@ -917,19 +919,21 @@ while(<>) {
 	    } elsif($logRmdr =~ /.* connect to ([^[]+)\[\S+?\]: (.+?) \(port \d+\)$/) {
 		++$smtpMsgs{lc($2)}{$1};
 	    } else {
-#		print UNPROCD "$_\n";
+		print $unProcd "$_\n" if $unProcd;
 	    }
 	}
 	else
 	{
-#	    print UNPROCD "$_\n";
+	    print $unProcd "$_\n" if $unProcd;
 	}
     }
 }
 
 # debugging
-#close(UNPROCD) ||
-#    die "problem closing \"unprocessed\": $!\n";
+if($unProcd) {
+    close($unProcd) ||
+	warn "problem closing \"$unProcdFN\": $!\n";
+}
 
 # Calculate percentage of messages rejected and discarded
 my $msgsRjctdPct = 0;
@@ -1518,7 +1522,8 @@ sub get_datestrs {
     }
     my ($t_mday, $t_mon, $t_year) = (localtime($time))[3,4,5];
 
-    return sprintf("%s %2d", $monthNames[$t_mon], $t_mday), sprintf("%04d-%02d-%02d", $t_year+1900, $t_mon+1, $t_mday);
+    return @{[map {s/ (\d)$/\[ 0\]$1/; $_} sprintf("%s %2d", $monthNames[$t_mon], $t_mday)]},
+       sprintf("%04d-%02d-%02d", $t_year+1900, $t_mon+1, $t_mday);
 }
 
 # if there's a real domain: uses that.  Otherwise uses the IP addr.
