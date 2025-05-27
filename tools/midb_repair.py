@@ -124,7 +124,7 @@ def recreate_midb(users):
     if not pargs.dry_run:
         subprocess.call(args)
     for user in users:
-        args = ["/usr/libexec/gromox/cleaner", "-d", f"{users[user]}"]
+        args = ["/usr/sbin/gromox-mbop", "-d", f"{users[user]}"]
         if pargs.verbose:
             print(args)
         if not pargs.dry_run:
