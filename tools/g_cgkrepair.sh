@@ -109,16 +109,16 @@ for mailbox in ${mailboxes[@]}; do
 	    echo -e "${RED}Found $entries problematic objects.${NORM}" |tee >(logg)
         fi
         if $verbose; then
-            echo -e "${BLUE}Verbose mode active. Dumping result:${NORM}" |tee >(log)
+            echo -e "${BLUE}Verbose mode active. Dumping result:${NORM}" |tee >(logg)
             echo "$output"
         fi
     else
-        echo "No problematic objects detected." |tee >(log)
+        echo "No problematic objects detected." |tee >(logg)
     fi
     echo
     #
 done
-echo -e "${CYA}${count} mailboxes checked.${NORM}" |tee >(log)
+echo -e "${CYA}${count} mailboxes checked.${NORM}" |tee >(logg)
 # check errors
 if [[ $errors -gt 0 ]]; then
     echo -e "${RED}$errors errors encountered!${NORM}" |tee /dev/stderr |tee >(logg)
@@ -128,7 +128,7 @@ if [[ $err_dir -gt 0 ]]; then
     echo -e "${RED}$err_dir directories not found!${NORM}" |tee /dev/stderr |tee >(logg)
 fi
 echo -e "The log file is: $log"
-$repair && echo -e "${CYA}Please note: Run the script until no more errors occur.${NORM}" |tee >(log)
+$repair && echo -e "${CYA}Please note: Run the script until no more errors occur.${NORM}" |tee >(logg)
 #
 echo "Script $0 stopped at: $(date +%Y%m%d-%H%M%S%n)" >> "$log"
 
