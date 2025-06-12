@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS "temp"."perms" (
   "name"  TEXT
 );
 INSERT OR REPLACE INTO temp.perms("perm","name") VALUES
-( 1,'redany'),
+( 1,'readany'),
 ( 2,'create'),
 ( 4,'sendas'),
 ( 8,'editowned'),
