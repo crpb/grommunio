@@ -38,12 +38,12 @@ MYSQLCONF="/etc/gromox/mysql_adaptor.cfg"
 eval "$(sed 's/ //g' "${MYSQLCONF}")" || echo "[ERROR] MYSQL-EVAL"
 
 date -Is
-echo "Stopping midb/pop3/imap services"
+#echo "Stopping midb/pop3/imap services"
 # stop services to/and cleanup sqlites
-/usr/bin/systemctl stop gromox-midb.service gromox-imap.service gromox-pop3.service
-for d in $(grommunio-admin user query maildir |sed '/^$/d'); do 
-  /usr/sbin/gromox-mbop -d $d vacuum; 
-  /usr/sbin/gromox-mbop -d $d purge-datafiles;
+#/usr/bin/systemctl stop gromox-midb.service gromox-imap.service gromox-pop3.service
+for d in $(grommunio-admin user query maildir |sed '/^$/d'); do
+  /usr/sbin/gromox-mbop -d $d vacuum
+  /usr/sbin/gromox-mbop -d $d purge-datafiles
 done
 
 #Gromox-Mount-Path
@@ -57,8 +57,8 @@ SNAPPATH="${GROMOXPATH}/.snapshots/${SNAPNUM}"
 
 # start services as we now have a snapshot
 /bin/date -Is
-echo "Starting midb/pop3/imap services"
-/usr/bin/systemctl start gromox-midb.service gromox-imap.service gromox-pop3.service
+#echo "Starting midb/pop3/imap services"
+#/usr/bin/systemctl start gromox-midb.service gromox-imap.service gromox-pop3.service
 
 #CREATE BACKUPDIRS
 mkdir -p ${BDIR}/{confs,mysql,{fs/"${SNAPCONF}",}} || echo "[ERROR] could not create Directories in ${BDIR}"

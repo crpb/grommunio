@@ -13,4 +13,5 @@ ProtectKernelLogs=true
 ProtectControlGroups=true
 RestrictRealtime=true
 Type=oneshot
+Environment=SYSTEMD=true
 ExecStart=/usr/local/sbin/grommunio-ldap-sync

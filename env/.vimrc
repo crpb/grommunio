@@ -156,7 +156,7 @@ else
   set ttymouse=xterm2
 end
 
-packadd! ale
+"packadd! ale
 
 " Filebrowser
 let g:netrw_liststyle = 1

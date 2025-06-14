@@ -7,9 +7,9 @@ LINK="$(basename "$0")"
 VIEWS=""
 SELECT="pragma integrity_check;"
 if [ "$BIN" != "$LINK" ]; then
-	if [ -r "$DIR/${LINK}.sql" ] && [ -r "$DIR/temp.views" ]; then
-		VIEWS="$(cat "$DIR/temp.views")"
-		SELECT=$(cat "$DIR/${LINK}.sql")
+	if [ -r "$DIR"/"${LINK}".sql ] && [ -r "$DIR"/temp.views ]; then
+		VIEWS="$(cat "$DIR"/temp.views)"
+		SELECT="$(cat "$DIR"/"${LINK}".sql)"
 	fi
 fi
 MQUERY='select username, maildir from users
@@ -18,11 +18,18 @@ if [ $# = 1 ]; then
 	USR="$1"
 	MQUERY="$MQUERY AND username = \"${USR}\""
 fi
-command mysql grommunio --skip-column-names --execute="$MQUERY" |
+printf '{"%s": [\n' "${LINK}"
+(
+command mysql grommunio --skip-column-names \
+	--execute="$MQUERY" |
 	while read -r username maildir; do
-		printf '{ "%s": {\n"maildir": "%s",
-		"result": %s }}\n\n' \
+		printf '{ "mailbox": "%s",
+   "maildir": "%s",
+   "result":\n %s}\n,' \
 			"$username" "$maildir" \
-			"$(echo "${VIEWS};${SELECT}" |
-			command sqlite3 -readonly -json "$maildir/exmdb/exchange.sqlite3")";
-	done
+			"$(echo "${VIEWS};${SELECT}"|
+			command sqlite3 -readonly -json \
+			"$maildir/exmdb/exchange.sqlite3")";
+		done
+    printf ']}\n'
+) | sed '$s/,//'

@@ -4,10 +4,15 @@
 export PATH=/sbin:/usr/sbin:/usr/bin:/bin
 set -e
 recover_svcs() {
-	/usr/bin/systemctl start gromox-midb.service gromox-imap.service gromox-pop3.service
+	local svc
+	for svc in gromox-midb gromox-imap gromox-pop3; do
+		if ! systemctl --system is-active ${svc}.service; then
+			systemctl --system reload-or-restart ${svc}.service
+		fi
+	done
 	if [ -d "$SNAPPATH" ]; then
-		umount "$SNAPPATH"
-		/usr/sbin/lvremove -y /dev/gromox/s_maildir
+		umount --force "$SNAPPATH"
+		/usr/sbin/lvremove --yes --force /dev/gromox/s_maildir
 	fi
 }
 trap "recover_svcs" ERR
@@ -86,11 +91,11 @@ CONFFILE
 cleanup() { rm -f "$CONFIG_FILE" ; }
 trap cleanup EXIT
 
-echo "Runtime: $SECONDS seconds"
-echo "Reloading ${SERVICES[*]/.service/}"
+#echo "Runtime: $SECONDS seconds"
+#echo "Reloading ${SERVICES[*]/.service/}"
 # restart services to/and cleanup sqlites
 # shellcheck disable=SC2086,SC2048
-/usr/bin/systemctl reload-restart ${SERVICES[*]}
+#/usr/bin/systemctl reload-restart ${SERVICES[*]}
 echo "Runtime: $SECONDS seconds"
 echo "Running cleanup tasks for Mailboxes"
 # for d in $(grommunio-admin user query maildir |sed '/^$/d'); do
@@ -154,7 +159,7 @@ time -p $COMMAND || echo "[ERROR] ${COMMAND}"
 # cleanup working snapshot
 if [ -d "$SNAPPATH" ]; then
 	echo "Deleting snapshot $SNAPPATH"
-	umount -v "$SNAPPATH"
+	umount --verbose "$SNAPPATH"
 	/usr/sbin/lvremove -y /dev/gromox/s_maildir
 fi
 

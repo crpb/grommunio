@@ -65,4 +65,19 @@ if test -n "$(command -vp snapper)"; then
 	__delete_root_snapshots() { snapper -c root delete 0-$(snapper -c root ls |awk 'END{print $1}') ; }
 fi
 
+ff () {
+  local d=.
+  if [ $# = 2 ]
+  then
+    d=$1
+    shift
+  fi
+  if [ $# != 1 ]
+  then
+    echo usage: ff [dir] string
+    return
+  fi
+  find $d -iname \*$1\* ! -iname '.*git.*' 2> /dev/null
+}
+
 alias count-files='for x in . */ ; do printf "%s\t%s\n" $(find $x -type f 2>/dev/null|wc -l) $x; done |sort -n'

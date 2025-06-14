@@ -12,7 +12,7 @@ Each is line is executed with `postconf $line`
 ``` shell
 export RELAYHOST=myrelayserver
 export RELAYUSER=myrelaysender
-export RELAYPASS=myrelaypass
+ export RELAYPASS=myrelaypass
 ./postfix.sh
 ```
 

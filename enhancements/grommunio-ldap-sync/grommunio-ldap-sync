@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #set -e
 orgs=$(grommunio-admin domain query --format=csv orgID 2>/dev/null |uniq | sed '/^orgID/d;s/\r/ /g');
-if [ -n "$orgs" ]; then
-	output=$(for org in $orgs; do
-	grommunio-admin ldap downsync --complete --organization "$org"
-done)
+if ! [ -t 1 ] && [ -z "$SYSTEMD" ]; then
+  exec 3>&1 4>&2 1>(systemd-cat -t grommunio-ldap-sync) 2>&1
 fi
-if [ -t 1 ] && [ -n "$output" ]; then
-	echo "$output"
+if [ -n "$orgs" ]; then
+  for org in $orgs; do
+    grommunio-admin ldap downsync --complete --organization "$org"
+  done
 fi
