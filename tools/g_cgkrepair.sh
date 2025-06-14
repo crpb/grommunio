@@ -103,9 +103,10 @@ shift $((OPTIND - 1))
 #[ "$#" -eq 0 ] && showhelp
 
 if $quiet; then
-  #exec 1>> >(ts '[%Y-%m-%d %H:%M:%.S]' >> "$log") 2>&1	
+  # Redirects all output (stdout and stderr)
   exec 3>&1 4>&2 1>/dev/null 2>&4
 fi
+# Removes ANSI color escape codes
 logg() { sed -e 's/\x1b\[[0-9;]*m//g' >> "$log"; }
 
 MSGT="Check"
@@ -115,7 +116,8 @@ if $repair; then
   MSGT="${YEL}Repair"
   dry_run=""
 fi
-echo "Script $0 started at: $(date +%Y%m%d-%H%M%S)" >>"$log"
+# We append to an existing log
+echo "Script $0 started at: $(date -Im)" >>"$log"
 #
 # If -e usr@dom.tld was supplied
 [ -n "$email" ] && mailboxes=$email
@@ -173,7 +175,7 @@ for mailbox in $mailboxes; do
   echo -e "The log file is: $log"
   $repair && echo -e "${CYA}Please note: Run the script until no more errors occur.${NORM}" |tee >(logg)
   #
-  echo "Script $0 stopped at: $(date +%Y%m%d-%H%M%S%n)" >> "$log"
+  echo -e "Script $0 stopped at: $(date -Im)\n" >> "$log"
 
 #
 # eof
