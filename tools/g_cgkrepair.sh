@@ -58,13 +58,13 @@ showhelp() {
   echo -e "  Use ${YEL}-v${NORM} to be verbose."
   echo -e "  Use ${CYA}-s${NORM} to only show defective mailboxes."
   echo -e "  Use ${RED}-q${NORM} to be quiet (the log will still be filled)."
-  echo -e "  Use -l path/to/file to use another logfile than the default /tmp/g_ckgrepair.log.\n"
+  echo -e "  Use -l path/to/file to use another logfile than the default /tmp/g_ckgrepair.log."
+  echo -e "  Use -e user@mbx.tld to only run check/fix for one user.\n"
 }
 
 
 #OPTIND=1
-while getopts hfsqve:l: opts
-do
+while getopts hfsqve:l: opts; do
     case "${opts}" in
         e)
             email="${OPTARG:?}"
