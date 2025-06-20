@@ -1,7 +1,8 @@
 # vim filetupe=bash
 ga() { grommunio-admin $@ ; }
 complete -F _python_argcomplete grommunio-admin ga
-gromtail() { find /var/log/grom* /var/log/nginx /var/log/mysql /var/log/php* -type f -iname "*log" -exec tail -f "{}" + | awk '/^==> / {a=substr($0, 5, length-8); next} {print a":"$0}' ; }
+#gromtail() { find /var/log/grom* /var/log/nginx /var/log/mysql /var/log/php* -type f -iname "*log" -exec tail -f "{}" + | awk '/^==> / {a=substr($0, 5, length-8); next} {print a":"$0}' ; }
+gromtail() { find /var/log/grom* /var/log/nginx /var/log/mysql /var/log/php* -type f -iname "*log" -exec tail -f "{}" + ; }
 alias _grom_clear_index='rm -Rf /var/lib/grommunio-web/sqlite-index/*;  /usr/sbin/grommunio-index-run.sh'
 alias bat='bat -p' #BAT CAT!
 alias fail2list='fail2ban-client status |sed -n "s/,//g;s/.*Jail list:[[:space:]]//p"|xargs -n 1 fail2ban-client status |grep -E "^Status|Banned IP list"'

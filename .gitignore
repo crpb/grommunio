@@ -1,5 +1,6 @@
 # git-pull..
 debian/podman/context/gromox
+debian/podman/context/libhx-*.tar.gz
 
 # IntelliJ
 .idea/

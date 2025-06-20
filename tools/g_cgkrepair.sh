@@ -181,7 +181,7 @@ fi
   echo -e "The log file is: $log"
   $repair && echo -e "${CYA}Please note: Run the script until no more errors occur.${NORM}" |tee >(logg)
   #
-echo -e "Script $0 stopped at: $(date -Im)"\n" >> "$log"
+echo -e "Script $0 stopped at: $(date -Im)\n" >> "$log"
 #
 # eof
 #

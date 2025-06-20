@@ -123,3 +123,28 @@ doneo
 ###############################################################################
 
 gromox-mbop foreach.here.mb \( Aecho-username \) \( Aemptyfld --nuke-folders IPM_SUBTREE \) \( Apurge-softdelete -r IPM_SUBTREE \) \( Apurge-datafiles \) \( Avacuum \) \( Arecalc-sizes \) \( Aunload \)
+
+
+###############################################################################
+# REDIS - Use additional database for antispam/rspamd
+###############################################################################
+
+## Create configuration file
+sed 's/default/grommunio-antispam/g ; s/6379/6380/g ' /etc/redis/grommunio.conf > /etc/redis/grommunio-antispam.conf
+## Create directory
+install -o redis -g redis -m 750 -d /var/lib/redis/grommunio-antispam
+## and switch to the new directory
+cd $_
+## dump default grommunio db so we have a copy (we disregard the grommunio-sync states for now)
+redis-cli -p 6379 --rdb dump.rdb
+## activate the service and start it directly
+systemctl --now enable redis@grommunio-antispam
+## Test if we can access it and see if the data is the ~same/similiar
+redis-cli -p 6379 --scan --pattern "RS*" |wc -l
+redis-cli -p 6380 --scan --pattern "RS*" |wc -l
+# RSPAMD Configuration switch
+## Create local override
+printf 'read_servers = "127.0.0.1:6380";\nwrite_servers = "127.0.0.1:6380";\ndmarc {\n\tservers = "127.0.0.1:6380";\n }\n' > /etc/grommunio-antispam/local.d/redis.conf
+systemctl restart grommunio-antispam
+## Check if override was applied
+rspamadm configdump redis
