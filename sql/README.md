@@ -1,3 +1,5 @@
+RECENTLY CHANGED .. EXAMPLES MOSTLY OUTDATED
+
 # Usage and examples
 
 ## selector
@@ -12,27 +14,44 @@ e.g. `ln -s $PWD/selector "${PATH%%:*}"/messagecount will try to load the file
 
 ## `folderpermissions`
 
-### json keys
+### json structure
 
 ```
-folderpermissions user@dom.tld | jq ' keys, [ .permissions[0]| keys ] '
-[
-  "maildir",
-  "permissions",
-  "username"
-]
-[
-  [
-    "folder_hex",
-    "folder_id",
-    "folder_name",
-    "parent_hex",
-    "parent_id",
-    "permission",
-    "permission_hex",
-    "username"
+{
+  "folderpermissions": [
+    {
+      "mailbox": "server@clownflare.de",
+      "maildir": "/var/lib/gromox/user/clownflare.de/server",
+      "result": [
+        {
+          "folder_id": 15,
+          "parent_id": 9,
+          "folder_hex": "0xf",
+          "parent_hex": "0x9",
+          "foldername": "Calendar",
+          "username": "default",
+          "permissions": "foldervisible,freebusysimple",
+          "permission": null,
+          "permission_dec": 3072,
+          "permission_hex": "0xc00"
+        },
+        {
+          "folder_id": 24,
+          "parent_id": 1,
+          "folder_hex": "0x18",
+          "parent_hex": "0x1",
+          "foldername": "Freebusy Data",
+          "username": "default",
+          "permissions": "freebusysimple",
+          "permission": "freebusysimple",
+          "permission_dec": 2048,
+          "permission_hex": "0x800"
+        }
+      ]
+    }
   ]
-]
+}
+
 ```
 
 ### filter on `folderpermissions`
@@ -40,27 +59,29 @@ folderpermissions user@dom.tld | jq ' keys, [ .permissions[0]| keys ] '
 #### Single mailbox
 - username
   - default permissions
-    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .username | match("default") ) '`
+    - `folderpermissions user@dom.tld | jq ' .[] | .permissions[] | select ( .username | match("default") ) '`
   - match email
-    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .username | match( "foo@dom.tld" ) ) '`
+    - `folderpermissions user@dom.tld | jq ' .[] | .permissions[] | select ( .username | match( "foo@dom.tld" ) ) '`
   - match domain 
-    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .username | match( "@dom.tld" ) ) '`
+    - `folderpermissions user@dom.tld | jq ' .[] | .permissions[] | select ( .username | match( "@dom.tld" ) ) '`
 - folder_id (int)
   - IPM_SUBTREE
-    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .folder_id == 9 ) '`
+    - `folderpermissions user@dom.tld | jq ' .[] | .permissions[] | select ( .folder_id == 9 ) '`
 - folder_hex
   - IPM_SUBTREE
-    - ` folderpermissions user@dom.tld | jq ' .permissions[] | select ( .folder_hex == "0x9" ) '`
+    - ` folderpermissions user@dom.tld | jq ' .[] | .permissions[] | select ( .folder_hex == "0x9" ) '`
   - Calendar
-    - `folderpermissions user@dom.tld | jq ' .permissions[] | select ( .folder_hex == "0xf" ) '`
+    - `folderpermissions user@dom.tld | jq ' .[] | .permissions[] | select ( .folder_hex == "0xf" ) '`
 
-#### All mailboxes + modified array
+#### All mailboxes
+- Split in array/folder
+  - `folderpermissions  | jq ' .folderpermissions |  map( { mailbox, maildir, permissions: .result[] } ) '`
 - folder_hex
   - IPM_SUBTREE 
-    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .folder_hex == "0x9" ) ] } '`
+    - `folderpermissions  | jq ' .folderpermissions |  map( { mailbox, maildir, permissions: .result[] | select ( .folder_hex == "0x9" ) } ) '`
   - Freebusy Data
-    - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .folder_hex == "0x18" ) ] } '`
-- Permission(decimal)
+    - `folderpermissions  | jq ' .folderpermissions |  map( { mailbox, maildir, permissions: .result[] | select ( .folder_hex == "0x18" ) } ) '`
+- Permission(decimal) (return everything)
   - > 2048
     - `folderpermissions  | jq ' { mailbox: .username, permissions: [ .permissions[] | select ( .permission_dec >= 2048 ) ] } '`
 - Foldername
