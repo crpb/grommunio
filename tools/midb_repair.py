@@ -54,7 +54,7 @@ group.add_argument(
     "--dry-run",
     action=argparse.BooleanOptionalAction,
     default=True,
-    help="Only show what would happen",
+    help="Only show what would happen(default). Use --no-dry-run when ready.",
 )
 group.add_argument(
     "--verbose", action=argparse.BooleanOptionalAction, default=False, help="Some noise"
@@ -124,7 +124,7 @@ def recreate_midb(users):
     if not pargs.dry_run:
         subprocess.call(args)
     for user in users:
-        args = ["/usr/sbin/gromox-mbop", "-d", f"{users[user]}"]
+        args = ["/usr/sbin/gromox-mbop", "-d", f"{users[user]}", "purge-datafiles"]
         if pargs.verbose:
             print(args)
         if not pargs.dry_run:
