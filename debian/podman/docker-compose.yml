@@ -1,8 +1,0 @@
-version: "3.7"
-
-services:
-  build_bullseye:
-    build: ./context
-#    dockerfile: ./context/Dockerfile
-    dockerfile: ./context/Dockerfile.bookworm
-    image: gromox-bullseye

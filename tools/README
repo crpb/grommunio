@@ -35,6 +35,16 @@ STUFF="$(grommunio-admin taginfo '*' | awk '{gsub(/,/,"", $3); printf "%s ", tol
 STUFF="$(grommunio-admin taginfo '*' | awk '{gsub(/,/,"", $3); printf "%s ", tolower($3)}')";  grommunio-admin shell -n <<< "$(for user in $(gromox-mbop foreach.mb echo-username); do printf "exmdb %s store get %s --format=json-kv\n" "$user" "$STUFF" ;done)"  2>/dev/null |sed '/^$/d' |awk '{ if ($1=="exmdb") { mailbox=$2 } else if ($1=="tag" && $2=="value") {next} else { printf "%s\t%s\n", mailbox, $0 } }' |while IFS=$'\t' read -r username json; do jq --arg username "$username" '{mbx: $username, exmdb: .}' <<< "$json"; done
 
 
+# user devices .... the silly way? /ó\
+
+grom_get_devices ()
+{
+	MBXS=$(gromox-mbop foreach.mb echo-username);
+	BULK="$(printf "user devices %s list\n" $MBXS)";
+	echo "$BULK" | grommunio-admin shell -n 2> /dev/null | sed '/^$/d' | awk '{ if ($1=="user" && $2=="devices") { mailbox=$3 } else if ($1=="ID" && $2=="Device") {next} else if ($1=="(No" && $2=="devices)") {next} else { printf "\"%s\"\t\"%s\"\t\"%s\"\t\"%s\"\t\"%s\"\t\"%s\"\t\"%s\"\n", mailbox, $1,$2,$3,$4,$5,$6 } }'
+}
+
+
 ###############################################################################
 # BULK OBJECT MOVING VIA SQLITE (handle with care!)
 ###############################################################################
@@ -148,3 +158,17 @@ printf 'read_servers = "127.0.0.1:6380";\nwrite_servers = "127.0.0.1:6380";\ndma
 systemctl restart grommunio-antispam
 ## Check if override was applied
 rspamadm configdump redis
+
+
+
+###############################################################################
+# sqlite3 backup specific table to json dump 
+###############################################################################
+
+sqlite3 -readonly foo.sqlite3 <<< EOF
+.output moo.json
+.mode json
+SELECT * FROM permissions;
+.quit
+EOF
+
