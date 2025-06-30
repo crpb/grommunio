@@ -105,7 +105,7 @@ echo "Running cleanup tasks for Mailboxes"
 # done
 trashbin_purgetime=7d
 softdelete_purgetime=30d
-/usr/sbin/gromox-mbop foreach.here.mb \( purge-softdelete -t "${softdelete_purgetime}" -r / \) \( purge-datafiles \) \( emptyfld -R --delempty -t "${trashbin_purgetime}" DELETED \)
+/usr/sbin/gromox-mbop foreach.here.mb \( purge-softdelete -t "${softdelete_purgetime}" -r / \) \( purge-datafiles \) \( emptyfld -R --delempty --soft -t "${trashbin_purgetime}" DELETED \)
 
 echo "Runtime: $SECONDS seconds"
 
