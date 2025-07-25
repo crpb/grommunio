@@ -172,3 +172,22 @@ SELECT * FROM permissions;
 .quit
 EOF
 
+
+###############################################################################
+# Full restore from rsync backup
+###############################################################################
+# On a new system run `grommunio-setup` to get everything ready so far
+# TIP: use the same mariadb password as from the old system during setup
+# Stop services and timers (e.g. grommunio-index) which might interfere
+SERVICES=$(systemctl --output json list-units | jq -r '.[]|select(.unit|test("(^grom.*|nginx|.*fpm).(service|timer)")).unit')
+systemctl stop $SERVICES
+# Import Mailboxdata and set correct permissions
+rsync -a --info=PROGRESS2 --chown=grommunio:gromox --chmod=ug=rwX,o=  /path/to/backup/of/var/lib/gromox/* /var/lib/gromox/
+# If you took an backup of /var/lib/grommunio-web
+rsync -a --info=PROGRESS2 --chown=groweb:groweb --chmod=ug=rwX,o=  /path/to/backup/of/var/lib/grommunio-web/* /var/lib/grommunio-web
+chown -Rf groindex /var/lib/grommunio-web/sqlite-index
+# Import mysql database
+mariadb < /path/to/backup/of/mariadbd-dump_grommunio.sql
+# override /etc/grom*|postfix configurations with those from your backup 
+# Start services or do a reboot
+systemctl start $SERVICES

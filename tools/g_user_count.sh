@@ -3,25 +3,27 @@
 # (c) 2023 by Walter Hofstaedtler and cb
 #
 # Authors: Walter Hofstaedtler <walter@hofstaedtler.com>
-#          Christopher Bock <christopher@bocki.com>
+#          crpb <christopher@bocki.com>
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# Stored in WHIE GIT: git@icc-srv:/whie/grommunio/tools.git
+# Stored in WHIE GIT: git@icc-file:/whie/grommunio/tools.git
 #
 # V.: 1.0 12.08.2023 initial release
-# V.: 1.1 14.08.2023 some improvements like getopts and $GADMINRES, thanks to cb
+# V.: 1.1 14.08.2023 some improvements like getopts and $GADMINRES, thanks to crpb
+# V.: 1.2 16.07.2025 suspended mailboxes now counted as free, grommunio repaired the admin-api
 #
 # Instructions:
-#    1. copy the script to the grommunio server like /scripts/g_user_count.sh
-#    2. convert the script to Linux LF: dos2unix /scripts/g_user_count.sh
-#    3. make the script executable ...: chmod +x /scripts/g_user_count.sh
-#    4. launch the script ............: /scripts/g_user_count.sh
+#    1. copy the script to the grommunio server like /scripts/manual/g_user_count.sh
+#    2. convert the script to Linux LF: dos2unix /scripts/manual/g_user_count.sh
+#    3. make the script executable ...: chmod +x /scripts/manual/g_user_count.sh
+#    4. launch the script ............: /scripts/manual/g_user_count.sh
 #    Use parameter:
 #       -u  list active users / mailboxes
 #       -s  list suspended users / mailboxes
 #       -m  list shared mailboxes
 #       -g  list groups / distribution lists
+#       -c  list contacts
 #       -a  show all 4 lists
 #       -h  show help message
 #
@@ -32,42 +34,43 @@
 #
 #
 RED="\033[0;31m"; YEL="\033[0;33m"; GRN="\033[0;32m"; CYA="\033[0;36m"; NORM="\033[0m"
-DO_HELP=0; DO_USERS=0; DO_SUSPEND=0; DO_SHARED=0; DO_GROUPS=0; DO_CONTACTS=0
+DO_HELP=false; DO_USERS=false; DO_SUSPEND=false; DO_SHARED=false; DO_GROUPS=false; DO_CONTACTS=false
 #
 echo
 echo -e "${CYA}Count grommunio Users / Mailboxes ${NORM}"
-echo -e "${CYA}V.: 1.1, (c) 2023 by Walter@Hofstaedtler.com and cb ${NORM}"
+echo -e "${CYA}V.: 1.2, (c) 2023-2025 by Walter@Hofstaedtler.com and crpb ${NORM}"
 echo
 #
+#
 OPTIND=1
-while getopts ":ausmgh" opt; do
+while getopts ":acusmgh" opt; do
     case $opt in
-        u)  DO_USERS=1
+        u)  DO_USERS=true
             ;;
-        s)  DO_SUSPEND=1
+        s)  DO_SUSPEND=true
             ;;
-        m)  DO_SHARED=1
+        m)  DO_SHARED=true
             ;;
-        g)  DO_GROUPS=1
+        g)  DO_GROUPS=true
             ;;
-        c)  DO_CONTACTS=1
+        c)  DO_CONTACTS=true
             ;;
-        a)  DO_USERS=1
-            DO_SUSPEND=1
-            DO_SHARED=1
-            DO_GROUPS=1
-            DO_CONTACTS=1
+        a)  DO_USERS=true
+            DO_SUSPEND=true
+            DO_SHARED=true
+            DO_GROUPS=true
+            DO_CONTACTS=true
             ;;
-        h)  DO_HELP=1
+        h)  DO_HELP=true
             ;;
-        *)  DO_HELP=1
+        *)  DO_HELP=true
             echo -e "${YEL}ERROR: invalid parameter!${NORM}\n"
             ;;
     esac
 done
 shift $((OPTIND - 1))
 #
-if [ "$DO_HELP" -eq 1 ]; then
+if $DO_HELP; then
     echo -e "${CYA}Help for ${BASH_SOURCE[0]}:${NORM}"
     echo -e " -u  list active users / mailboxes"
     echo -e " -s  list suspended users / mailboxes"
@@ -90,49 +93,62 @@ SHARED_MB="$(grep '/var/lib/' <<< "$GADMINRES" | grep -c 4/shared)"
 DIST_LIST="$(grep -v '/var/lib/' <<< "$GADMINRES" | grep -c "@")"
 TOTAL_ADMIN="$(grep '/var/lib/' <<< "$GADMINRES" | grep -c "@")"
 #
-TOTAL_USERS=$((USERS + SUSPENDED))
+#TOTAL_USERS=$((USERS + SUSPENDED))
+TOTAL_USERS=$USERS
+TOTAL_FREE=$((SHARED_MB + SUSPENDED))
 TOTAL_COUNT=$((USERS + SHARED_MB + SUSPENDED))
 #
-if [ "$DO_USERS" -eq 1 ] && [ "$USERS" -gt 0 ]; then
+if $DO_USERS && [ "$USERS" -gt 0 ]; then
     echo -e "${CYA}List active users:${NORM}"
     grep '/var/lib/.*0/active' <<< "$GADMINRES" | sort | awk '{ print "  " $1 }'
     MZ=""; [ "$USERS" -ne 1 ] && MZ="s"
     echo -e "${YEL}${USERS} active user${MZ}${NORM}\n"
 fi
 #
-if [ "$DO_SUSPEND" -eq 1 ] && [ "$SUSPENDED" -gt 0 ]; then
+if $DO_SUSPEND && [ "$SUSPENDED" -gt 0 ]; then
     echo -e "${CYA}List suspended users:${NORM}"
     grep '/var/lib/.*1/suspended' <<< "$GADMINRES" | sort | awk '{ print "  " $1 }'
     MZ=""; [ "$SUSPENDED" -ne 1 ] && MZ="s"
     echo -e "${YEL}${SUSPENDED} suspended user${MZ}${NORM}\n"
 fi
 #
-if [ "$DO_SHARED" -eq 1 ] && [ "$SHARED_MB" -gt 0 ]; then
+if $DO_SHARED && [ "$SHARED_MB" -gt 0 ]; then
     echo -e "${CYA}List shared mailboxes:${NORM}"
     grep '/var/lib/.*4/shared' <<< "$GADMINRES" | sort | awk '{ print "  " $1 }'
     MZ=""; [ "$SHARED_MB" -ne 1 ] && MZ="es"
     echo -e "${YEL}${SHARED_MB} shared mailbox${MZ}${NORM}\n"
 fi
 #
-if [ "$DO_GROUPS" -eq 1 ] && [ "$DIST_LIST" -gt 0 ]; then
+if $DO_GROUPS && [ "$DIST_LIST" -gt 0 ]; then
     echo -e "${CYA}List groups / distribution lists:${NORM}"
     grep -v '/var/lib/' <<< "$GADMINRES" | grep "@" | sort | awk '{ print "  " $1}'
     MZ=""; [ "$DIST_LIST" -ne 1 ] && MZ="s"
     echo -e "${YEL}${DIST_LIST} groups / distribution list${MZ}${NORM}\n"
 fi
 #
+if $DO_CONTACTS && [ "$CONTACTS" -gt 0 ]; then
+    echo -e "${CYA}List contacts:${NORM}"
+    grep -v '/var/lib/.*5/contact' <<< "$GADMINRES" | sort | awk '{ print "  " $1}'
+    MZ=""; [ "$CONTACTS" -ne 1 ] && MZ="s"
+    echo -e "${YEL}${CONTACTS} contact${MZ}${NORM}\n"
+fi
+#
 printf -v T_U "% 4d" "$TOTAL_USERS"
+printf -v T_F "% 4d" "$TOTAL_FREE"
 printf -v D_L "% 4d" "$DIST_LIST"
 printf -v S_M "% 4d" "$SHARED_MB"
 printf -v T_C "% 4d" "$TOTAL_COUNT"
+printf -v S_U "% 4d" "$SUSPENDED"
 printf -v O_C "% 4d" "$CONTACTS"
 #
 # Print summary
-echo -e "${GRN}${T_U}${NORM} users / mailboxes to be ${GRN}licensed${NORM}, includes ${SUSPENDED} suspended users, rooms and equipment,"
-echo -e "${RED}${S_M}${NORM} shared mailboxes (free),"
-echo -e "${YEL}${D_L}${NORM} groups / distribution lists (free),"
-echo -e "${CYA}${T_C}${NORM} mailboxes total."
-echo -e "${GRN}${O_C}${NORM} contacts."
+echo -e "${GRN}${T_U}${NORM} users / mailboxes to be ${GRN}licensed${NORM},"
+echo -e "${YEL}${S_M}${NORM}   shared mailboxes (free),"
+echo -e "${YEL}${S_U}${NORM}   suspended mailboxes (free),"
+echo -e "${RED}${T_F}${NORM} number of free mailboxes,"
+echo -e "${CYA}${T_C}${NORM} mailboxes total (free and paid)."
+echo -e "${YEL}${D_L}${NORM}   groups / distribution lists (free),"
+echo -e "${GRN}${O_C}${NORM}   contacts (free)."
 #
 if [ "$TOTAL_ADMIN" -ne "$TOTAL_COUNT" ]; then
     echo -e "${RED}ERROR:${NORM} TOTAL count do ${RED}*NOT*${NORM} match grommunio-admin user count!${NORM}, grommunio-admin: ${RED}${TOTAL_ADMIN}${NORM}, my count: ${YEL}${TOTAL_COUNT}${NORM}!"
