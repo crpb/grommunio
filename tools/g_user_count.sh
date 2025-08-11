@@ -127,8 +127,13 @@ if $DO_GROUPS && [ "$DIST_LIST" -gt 0 ]; then
 fi
 #
 if $DO_CONTACTS && [ "$CONTACTS" -gt 0 ]; then
-    echo -e "${CYA}List contacts:${NORM}"
-    grep -v '/var/lib/.*5/contact' <<< "$GADMINRES" | sort | awk '{ print "  " $1}'
+	echo -e "${CYA}List contacts:${NORM}"
+	CONTACT=$(awk '/5\/contact/{print $1}' <<< "$GADMINRES")
+	grommunio-admin shell -n <<< "$(for contact in $CONTACT; do
+		printf "user show %s\n" "$contact"; done)"|&
+		awk -F ': ' '
+			{if ($1~/username/) {printf "  %s", $2}
+			else if ($1~/smtpaddress/) {printf "\t%s\n", $2}}'
     MZ=""; [ "$CONTACTS" -ne 1 ] && MZ="s"
     echo -e "${YEL}${CONTACTS} contact${MZ}${NORM}\n"
 fi
