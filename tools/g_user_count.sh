@@ -12,6 +12,7 @@
 # V.: 1.0 12.08.2023 initial release
 # V.: 1.1 14.08.2023 some improvements like getopts and $GADMINRES, thanks to crpb
 # V.: 1.2 16.07.2025 suspended mailboxes now counted as free, grommunio repaired the admin-api
+# V.: 1.3 22.09.2025 Read Grommunio license information, implemented crpb
 #
 # Instructions:
 #    1. copy the script to the grommunio server like /scripts/manual/g_user_count.sh
@@ -38,7 +39,7 @@ DO_HELP=false; DO_USERS=false; DO_SUSPEND=false; DO_SHARED=false; DO_GROUPS=fals
 #
 echo
 echo -e "${CYA}Count grommunio Users / Mailboxes ${NORM}"
-echo -e "${CYA}V.: 1.2, (c) 2023-2025 by Walter@Hofstaedtler.com and crpb ${NORM}"
+echo -e "${CYA}V.: 1.3, (c) 2023-2025 by Walter@Hofstaedtler.com and crpb ${NORM}"
 echo
 #
 #
@@ -127,13 +128,13 @@ if $DO_GROUPS && [ "$DIST_LIST" -gt 0 ]; then
 fi
 #
 if $DO_CONTACTS && [ "$CONTACTS" -gt 0 ]; then
-	echo -e "${CYA}List contacts:${NORM}"
-	CONTACT=$(awk '/5\/contact/{print $1}' <<< "$GADMINRES")
-	grommunio-admin shell -n <<< "$(for contact in $CONTACT; do
-		printf "user show %s\n" "$contact"; done)"|&
-		awk -F ': ' '
-			{if ($1~/username/) {printf "  %s", $2}
-			else if ($1~/smtpaddress/) {printf "\t%s\n", $2}}'
+    echo -e "${CYA}List contacts:${NORM}"
+    CONTACT=$(awk '/5\/contact/{print $1}' <<< "$GADMINRES")
+    grommunio-admin shell -n <<< "$(for contact in $CONTACT; do
+        printf "user show %s\n" "$contact"; done)"|&
+        awk -F ': ' '
+            {if ($1~/username/) {printf "  %s", $2}
+            else if ($1~/smtpaddress/) {printf "\t%s\n", $2}}'
     MZ=""; [ "$CONTACTS" -ne 1 ] && MZ="s"
     echo -e "${YEL}${CONTACTS} contact${MZ}${NORM}\n"
 fi
@@ -146,8 +147,21 @@ printf -v T_C "% 4d" "$TOTAL_COUNT"
 printf -v S_U "% 4d" "$SUSPENDED"
 printf -v O_C "% 4d" "$CONTACTS"
 #
+# Read Grommunio license information
+LICENSE=/etc/grommunio-admin-common/license/license.crt
+if [ -f "$LICENSE" ]; then
+    X509DATA=$(openssl x509 -noout -in "$LICENSE" -text |sed -e 's/^[ \t]*//')
+    if [ -n "$X509DATA" ]; then
+        LICENSE_TYPE=$(sed -n '/1.3.6.1.4.1.56504.1.2/{n;p}' <<< "$X509DATA")
+        LICENSE_COUNT=$(sed -n '/1.3.6.1.4.1.56504.1.1/{n;p}' <<< "$X509DATA")
+        printf -v L_C "% 4d" "$LICENSE_COUNT"
+    fi
+fi
 # Print summary
-echo -e "${GRN}${T_U}${NORM} users / mailboxes to be ${GRN}licensed${NORM},"
+echo -e "${GRN}${T_U}${NORM} users / mailboxes to be ${YEL}licensed${NORM},"
+if [ -n "$LICENSE_COUNT" ]; then
+    echo -e "${GRN}${L_C}${NORM} users with ${YEL}${LICENSE_TYPE} ${GRN}licensed!${NORM}"
+fi
 echo -e "${YEL}${S_M}${NORM}   shared mailboxes (free),"
 echo -e "${YEL}${S_U}${NORM}   suspended mailboxes (free),"
 echo -e "${RED}${T_F}${NORM} number of free mailboxes,"
