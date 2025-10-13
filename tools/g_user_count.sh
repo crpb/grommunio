@@ -13,6 +13,10 @@
 # V.: 1.1 14.08.2023 some improvements like getopts and $GADMINRES, thanks to crpb
 # V.: 1.2 16.07.2025 suspended mailboxes now counted as free, grommunio repaired the admin-api
 # V.: 1.3 22.09.2025 Read Grommunio license information, implemented crpb
+# V.: 1.4 09.10.2025 Display license expiration if a license was found, WH
+# V.: 1.5 10.10.2025 Show expiration date as numeric date, show expiration warning within 61 days. 
+#
+VERSION="1.5"
 #
 # Instructions:
 #    1. copy the script to the grommunio server like /scripts/manual/g_user_count.sh
@@ -39,7 +43,7 @@ DO_HELP=false; DO_USERS=false; DO_SUSPEND=false; DO_SHARED=false; DO_GROUPS=fals
 #
 echo
 echo -e "${CYA}Count grommunio Users / Mailboxes ${NORM}"
-echo -e "${CYA}V.: 1.3, (c) 2023-2025 by Walter@Hofstaedtler.com and crpb ${NORM}"
+echo -e "${CYA}V.: ${VERSION}, (c) 2023-2025 by Walter@Hofstaedtler.com and crpb ${NORM}"
 echo
 #
 #
@@ -155,12 +159,34 @@ if [ -f "$LICENSE" ]; then
         LICENSE_TYPE=$(sed -n '/1.3.6.1.4.1.56504.1.2/{n;p}' <<< "$X509DATA")
         LICENSE_COUNT=$(sed -n '/1.3.6.1.4.1.56504.1.1/{n;p}' <<< "$X509DATA")
         printf -v L_C "% 4d" "$LICENSE_COUNT"
+        # License expiration
+        search="Not After :"
+        while IFS= read -r line; do
+          [[ "$line" == *"$search"* ]] && LICENSE_EXPIRES="${line#*"$search"}"
+        done <<< "$X509DATA"
+        ZERT_EXPIRES=$(date -d "$LICENSE_EXPIRES" +%s)
+        NOW=$(date +%s)
+        # Calculate difference in seconds
+        DIFF=$(( ZERT_EXPIRES - NOW ))
+        # Calculate days remaining
+        DAYS_LEFT=$(( DIFF / 86400 ))
+        # Convert to numeric date
+        LICENSE_EXPIRES=$(date -d @"$ZERT_EXPIRES" +'%d.%m.%Y %H:%M:%S')
     fi
 fi
 # Print summary
 echo -e "${GRN}${T_U}${NORM} users / mailboxes to be ${YEL}licensed${NORM},"
 if [ -n "$LICENSE_COUNT" ]; then
-    echo -e "${GRN}${L_C}${NORM} users with ${YEL}${LICENSE_TYPE} ${GRN}licensed!${NORM}"
+    if (( ZERT_EXPIRES < NOW )); then
+        echo -e "${GRN}${L_C}${NORM} users with ${CYA}${LICENSE_TYPE} ${RED}expired!${NORM}"
+        echo -e "${YEL}     The license has expired at: ${RED}$LICENSE_EXPIRES"
+    else
+        echo -e "${GRN}${L_C}${NORM} users with ${CYA}${LICENSE_TYPE} ${GRN}licensed.${NORM}"
+        echo -e "     The license is valid until: ${GRN}$LICENSE_EXPIRES"
+        if [ "$DAYS_LEFT" -le 61 ]; then
+          echo -e "${YEL}     WARNING: the license will expire in ${RED}$DAYS_LEFT ${YEL}days."
+        fi
+    fi
 fi
 echo -e "${YEL}${S_M}${NORM}   shared mailboxes (free),"
 echo -e "${YEL}${S_U}${NORM}   suspended mailboxes (free),"
