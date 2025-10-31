@@ -128,9 +128,10 @@ if pargs.all:
     )
 
 if pargs.user:
-    userfilter = ["--filter", f"username={pargs.user}"]
+    userfilter = gaquery
+    userfilter.extend(["--filter", f"username={pargs.user}"])
     data = subprocess.check_output(
-        gaquery.append(userfilter),
+        userfilter,
         universal_newlines=True,
     )
 
