@@ -96,7 +96,7 @@ MYSQL_CMD="mysql --defaults-file=${CONFIG_FILE} ${MYSQL_PARAMS}"
 # shellcheck disable=SC2068
 if ${MYSQL_CMD}<<<"exit"&>/dev/null; then
   ${MYSQL_CMD} --execute "${MYSQL_QUERY}" | while read -r USERNAME MAILDIR; do
-  sqlite3 -readonly -noheader "${MAILDIR}/exmdb/exchange.sqlite3" "$SQLITE_QUERY" |
+  sqlite3 -batch -readonly -noheader "${MAILDIR}/exmdb/exchange.sqlite3" "$SQLITE_QUERY" |
     while IFS='|' read -r MESSAGEID MIDSTRING FOLDERID; do
       MBOP_CMD="$(command -v gromox-mbop)"
       MBOP_CMD="$MBOP_CMD -u $USERNAME delmsg"
@@ -114,7 +114,7 @@ if ${MYSQL_CMD}<<<"exit"&>/dev/null; then
         $MBOP_CMD -f "${FOLDERID}" "${MESSAGEID}" | systemd-cat -t grommunio-ham-run -p notice 
       else
         # At least mark it as read if we don't delete it.
-        sqlite3 "${MAILDIR}/exmdb/exchange.sqlite3" "UPDATE messages SET read_state=1 WHERE message_id=$MESSAGEID;"
+        sqlite3 -batch "${MAILDIR}/exmdb/exchange.sqlite3" "UPDATE messages SET read_state=1 WHERE message_id=$MESSAGEID;"
       fi
     done
   done

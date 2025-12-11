@@ -28,7 +28,7 @@ command mysql grommunio --skip-column-names \
    "result":\n %s}\n,' \
 			"$username" "$maildir" \
 			"$(echo "${VIEWS};${SELECT}"|
-			command sqlite3 -readonly -json \
+			command sqlite3 -batch -readonly -json \
 			"$maildir/exmdb/exchange.sqlite3")";
 		done
     printf ']}\n'

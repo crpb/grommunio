@@ -165,7 +165,7 @@ rspamadm configdump redis
 # sqlite3 backup specific table to json dump 
 ###############################################################################
 
-sqlite3 -readonly foo.sqlite3 <<< EOF
+sqlite3 -batch -readonly foo.sqlite3 <<< EOF
 .output moo.json
 .mode json
 SELECT * FROM permissions;

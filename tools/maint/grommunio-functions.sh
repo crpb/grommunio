@@ -237,7 +237,7 @@ where 1=1
 and ($folder_id = 0xe or m.parent_fid != 0xe)
 order by m.message_id asc;"
 
-  printf '%s' "$(sqlite3 -noheader "$dbfile" "${sql}")"
+  printf '%s' "$(sqlite3 -noheader -batch "$dbfile" "${sql}")"
 }
 
 
@@ -481,7 +481,7 @@ WHERE 1=1
 AND m.parent_fid NOT IN (0xb,0xe,0x17)
 ORDER BY m.message_id ASC;"
 
-  printf '%s' "$(sqlite3 -readonly -noheader "$dbfile" "${sql}")"
+  printf '%s' "$(sqlite3 -batch -readonly -noheader "$dbfile" "${sql}")"
 }
 
 
@@ -666,7 +666,7 @@ AND mp2.proptag = 1081540619
 WHERE coalesce(mp2.propval, 0) = $spam_flag
 ORDER BY m.message_id ASC;"
 
-    printf '%s' "$(sqlite3 -readonly -noheader "$dbfile" "${sql}")"
+    printf '%s' "$(sqlite3  -batch -readonly -noheader "$dbfile" "${sql}")"
 }
 
 
