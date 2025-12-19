@@ -245,6 +245,7 @@ grom_users() {
 #   LimitedDetails: Daten zur Verfügbarkeit mit Betreff und Ort anzeigen
 export ACL="all create createsubfolder deleteany deleteowned editany editowned foldercontact folderowner foldervisible freebusydetailed freebusysimple readany sendas storeowner"
 export ACL_AUTHOR="create deleteowned editowned foldervisible readany"
+export ACL_PUBLISHING_AUTHOR="createitems createsubfolders deleteowneditems editowneditems foldervisible readitems"
 export ACL_AVAILABILITY="freebusysimple"
 export ACL_CONTRIBUTOR="create foldervisible"
 export ACL_EDITOR="${ACL_AUTHOR} deleteany editany"
@@ -261,6 +262,7 @@ export ACL_ALL='$ACL $ACL_AUTHOR $ACL_AVAILABILITY $ACL_CONTRIBUTOR $ACL_EDITOR 
 #  0xe;Entwürfe
 #  0xf;Kalender
 _exmdb_std_folders="$(echo 0x{10..12} 0x{a..f})"
+_exmdb_folders_in_out_del="$(echo 0x{a,b,d})"
 
 # \(0x\w{1,20}\)
 
@@ -493,6 +495,29 @@ exmdb_set_perm() {
     done
   fi
 }
+# completion
+_comp_exmdb_set_perm() {
+  _grom_users="${_grom_users:=$(grom_users)}"
+  local cur
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  case $COMP_CWORD in
+  1)
+    COMPREPLY=($(compgen -W "${_grom_users}" -- ${cur}))
+    ;;
+  2)
+    COMPREPLY=($(compgen -W "${_grom_users}" -- ${cur}))
+    ;;
+  3)
+    COMPREPLY=($(compgen -W "${ACL_ALL}" -- ${cur}))
+    ;;
+  *)
+    COMPREPLY=($(compgen -W "\$ACL ${ACL}" -- ${cur}))
+    ;;
+  esac
+  return 0
+}
+complete -F _comp_exmdb_set_perm exmdb_set_perm
 ##SetStdFolderRights
 exmdb_set_stdFolders() {
   local owner user acl acls
@@ -559,3 +584,16 @@ _midb_readonly() {
   sqlite3 -batch -readonly $(_grom_query_maildir $user)/exmdb/midb.sqlite3 $*
 }
 complete -F _comp_grom_users _midb_readonly
+
+grom_get_devices () {
+  ( 
+    if [ "$#" -eq 1 ]; then
+      MBXS="$1";
+    else
+      MBXS=$(gromox-mbop foreach.mb echo-username);
+    fi;
+    BULK="$(printf "user devices %s list\n" $MBXS)";
+    ( echo "$BULK" | grommunio-admin shell -n 2> /dev/null | sed '/^$/d' | awk '{ if ($1=="user" && $2=="devices") { mailbox=$3 } else if ($1=="ID" && $2=="Device") {next} else if ($1=="(No" && $2=="devices)") {next} else { printf "%s\t%s\n", mailbox, $0 } }' | sort | column -t ) | grep -e '' -e 'Outlook.*/'
+  )
+}
+complete -F _comp_grom_users grom_get_devices
