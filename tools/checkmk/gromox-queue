@@ -1,0 +1,42 @@
+#!/bin/sh
+set -e
+# CheckMK local check to monitor /var/lib/gromox/queue/save
+# ref: https://docs.checkmk.com/latest/de/localchecks.html
+# Set status depending on how many messages are stuck in the queue
+
+# Load/Create configuration. 
+CONFIG=/etc/check_mk/gromox-queue.cfg
+# Defaults
+if [ -r "$CONFIG" ]; then
+	# shellcheck source=/etc/check_mk/gromox-queue.cfg
+	. "$CONFIG"
+else
+	printf '# Gromox Queue\nSERVICE=%s\nTHRESHOLD_WARN=%i\nTHRESHOLD_CRIT=%i\n' \
+	       "$SERVICE" "$THRESHOLD_WARN" "$THRESHOLD_CRIT" > "$CONFIG"
+fi
+INT_SERVICE="${SERVICE:-GROMOX:QUEUE}"
+INT_THRESHOLD_WARN="${THRESHOLD_WARN:-1}"
+INT_THRESHOLD_CRIT="${THRESHOLD_CRIT:-5}"
+
+CFG_DELIVERY=/etc/gromox/delivery.cfg
+[ -r "$CFG_DELIVERY" ] &&
+QUEUE_PATH=$(sed -ne 's/^dequeue_path\s*=\s*\(.*\)/\1/p' "$CFG_DELIVERY")
+[ -z "$QUEUE_PATH" ] && QUEUE_PATH=/var/lib/gromox/queue
+SAVED_COUNT=$(find "$QUEUE_PATH"/save -type f | wc -l)
+
+## simple ok/warn/crit 
+#STATUS=3 # 0 OK, 1 WARN, 2 CRIT, 3 UNKNOWN
+#if [ -n "$SAVED_COUNT" ]; then
+#       [ "$SAVED_COUNT" -lt "$INT_THRESHOLD_WARN" ] && STATUS=0
+#       [ "$SAVED_COUNT" -ge "$INT_THRESHOLD_WARN" ] && STATUS=1
+#       [ "$SAVED_COUNT" -ge "$INT_THRESHOLD_CRIT" ] && STATUS=2
+#fi
+## metricname=value;warn;crit;min;max
+#printf '%i "%s" save=%i;%i;%i;0 messages stuck in queue/save\n ' \
+#      "$STATUS" "$SERVICE" "$SAVED_COUNT" "$INT_THRESHOLD_WARN" "$INT_THRESHOLD_CRIT"
+
+# dynamic ok/warn/crit computed by omd
+# metricname=value;warn;crit;min;max
+printf 'P "%s" save=%i;%i;%i;0 %s\n ' \
+      "$INT_SERVICE" "$SAVED_COUNT" "$INT_THRESHOLD_WARN" "$INT_THRESHOLD_CRIT" \
+      "messages stuck in $QUEUE_PATH/save"

@@ -1,0 +1,10 @@
+# gromox-queue
+
+A simple local check for CheckMK to notify about stuck messages in `/var/lib/gromox/queue/save`.
+
+## Installation
+Place/link script into `/usr/lib/check_mk_agent/local` and make it executable.
+To limit it's execution to e.g. every 15 minutes place it in the subfolder "900" (seconds).
+
+## Configuration
+A default configuration will be automatically created in `/etc/checkmk/gromox-queue.cfg` where you can set a service name and thresholds.
