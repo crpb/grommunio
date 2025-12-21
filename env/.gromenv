@@ -597,3 +597,22 @@ grom_get_devices () {
   )
 }
 complete -F _comp_grom_users grom_get_devices
+
+
+grom_get_mbsize_report () {
+  (
+    if [ "$#" -eq 1 ]; then
+      MBXS="$1";
+    else
+      MBXS="$(gromox-mbop foreach.mb echo-username)"
+    fi;
+    for MBX in $MBXS; do
+      maildir=$(gromox-mbop -u "$MBX" echo-maildir)
+      echo -e "\n\033[1mGROMOX MBSIZE\033[0m\tgromox-mbsize(8)\n"
+      echo -e "\033[1mUser:\t${MBX}\nMaildir:\t${maildir}\033[0m" | column -t
+      echo
+      gromox-mbsize "$maildir"
+    done
+  )
+}
+complete -F _comp_grom_users grom_get_mbsize_report
