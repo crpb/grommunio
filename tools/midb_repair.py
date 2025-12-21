@@ -104,7 +104,7 @@ def recreate_midb(users):
         if not pargs.dry_run:
             print(f"Cleaner: {cuser}")
             subprocess.call(args)
-        args = ["gromox-mbop", "-d", f"{users[cuser]}", "sync-midb"]
+        args = ["gromox-mbop", "-d", f"{users[cuser]}", "sync-midb", "-f", "all"]
         if pargs.verbose:
             print(args)
         if not pargs.dry_run:
