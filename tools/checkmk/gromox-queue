@@ -10,17 +10,18 @@ CONFIG=/etc/check_mk/gromox-queue.cfg
 if [ -r "$CONFIG" ]; then
 	# shellcheck source=/etc/check_mk/gromox-queue.cfg
 	. "$CONFIG"
-else
-	printf '# Gromox Queue\nSERVICE=%s\nTHRESHOLD_WARN=%i\nTHRESHOLD_CRIT=%i\n' \
-	       "$SERVICE" "$THRESHOLD_WARN" "$THRESHOLD_CRIT" > "$CONFIG"
 fi
 INT_SERVICE="${SERVICE:-GROMOX:QUEUE}"
 INT_THRESHOLD_WARN="${THRESHOLD_WARN:-1}"
 INT_THRESHOLD_CRIT="${THRESHOLD_CRIT:-5}"
+if ! [ -r "$CONFIG" ]; then
+	printf '# Gromox Queue\nSERVICE=%s\nTHRESHOLD_WARN=%i\nTHRESHOLD_CRIT=%i\n' \
+		"$INT_SERVICE" "$INT_THRESHOLD_WARN" "$INT_THRESHOLD_CRIT" > "$CONFIG"
+fi
 
 CFG_DELIVERY=/etc/gromox/delivery.cfg
 [ -r "$CFG_DELIVERY" ] &&
-QUEUE_PATH=$(sed -ne 's/^dequeue_path\s*=\s*\(.*\)/\1/p' "$CFG_DELIVERY")
+	QUEUE_PATH=$(sed -ne 's/^dequeue_path\s*=\s*\(.*\)/\1/p' "$CFG_DELIVERY")
 [ -z "$QUEUE_PATH" ] && QUEUE_PATH=/var/lib/gromox/queue
 SAVED_COUNT=$(find "$QUEUE_PATH"/save -type f | wc -l)
 
@@ -38,5 +39,5 @@ SAVED_COUNT=$(find "$QUEUE_PATH"/save -type f | wc -l)
 # dynamic ok/warn/crit computed by omd
 # metricname=value;warn;crit;min;max
 printf 'P "%s" save=%i;%i;%i;0 %s\n ' \
-      "$INT_SERVICE" "$SAVED_COUNT" "$INT_THRESHOLD_WARN" "$INT_THRESHOLD_CRIT" \
-      "messages stuck in $QUEUE_PATH/save"
+	"$INT_SERVICE" "$SAVED_COUNT" "$INT_THRESHOLD_WARN" "$INT_THRESHOLD_CRIT" \
+	"messages stuck in $QUEUE_PATH/save"
