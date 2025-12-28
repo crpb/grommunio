@@ -99,7 +99,7 @@ echo "Runtime: $SECONDS seconds"
 # Try to create a LVM-Snapshot
 DISKSOURCE=$(findmnt /var/lib/gromox --noheadings --output SOURCE)
 # Check if it is a lvm volume
-if lvscan 2>/dev/null|grep -q "$DISKSOURCE" >/dev/null; then
+if lvdisplay --quiet "$DISKSOURCE" >/dev/null; then
 	echo "LVM-Snapshot"
 	# freeze: halt all operations on a mailbox
 	#gromox-mbop foreach.mb.here freeze
