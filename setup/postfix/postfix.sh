@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # check for password-map mechanisms / lmdb on opnsuse
-TABLE='lmdb' # ; postconf -m |grep -q $TABLE || TABLE='hash'
+TABLE='lmdb'; postconf -m |grep -q $TABLE || TABLE='hash'
 # if no postdefaults file exists use this as a fallback
-if test -r "$SCRIPT_DIR/postdefaults" ; then 
-	DEFAULTS="$(cat "$SCRIPT_DIR"/postdefaults)" 
+if test -r "$SCRIPT_DIR/postdefaults" ; then
+	DEFAULTS="$(cat "$SCRIPT_DIR"/postdefaults)"
 else
 	DEFAULTS=$POSTDEFAULTS
 fi
@@ -19,7 +19,7 @@ postconf -e \
         smtp_sasl_auth_enable=yes \
         smtp_sasl_security_options=noanonymous \
         smtp_sasl_password_maps=${TABLE}:/etc/postfix/sasl_passwd \
-        smtp_use_tls=yes \
+        smtp_tls_security_level=may \
         smtpd_tls_mandatory_protocols='>=TLSv1.2,<=TLSv1.3' \
         smtpd_tls_protocols='>=TLSv1.2,<=TLSv1.3'
 fi
@@ -29,7 +29,7 @@ cat << EOF >> /etc/postfix/sasl_passwd
 [$RELAYHOST]:submission $RELAYUSER:$RELAYPASS
 EOF
 
-postmap /etc/postfix/sasl_passwd
+postmap "$TABLE":/etc/postfix/sasl_passwd
 # Disable DSN
 printf "Set DSN-Food? (leave empty if not): "
 read -r accept
@@ -41,5 +41,11 @@ $(ip r s p kernel |awk '{print$1;exit}')       silent-discard, dsn
 0.0.0.0/0           silent-discard, dsn
 ::/0                silent-discard, dsn
 EOF
+fi
+# Compatibility Level 
+printf "Set compatibility level 3.6? (leave empty if not): "
+read -r compatlevel
+if [ ${#compatlevel} -ne 0 ]; then
+postconf compatibility_level=3.6
 fi
 postfix reload
