@@ -16,18 +16,15 @@ EOF
 
 date -Is
 
+# /etc/fstab:10.10.10.252:/mnt/poolN/nfs/backup/gromi	/mnt/poolN/nfs/backup/gromi	nfs     x-systemd.automount,x-systemd.requires=network.target,x-systemd.mount-timeout=10   0 0
 BACKUPROOT=$(awk '/^\s+?#/{next} /grom.*nfs/ {print $2}' /etc/fstab)
 GROMOXSRC=/var/lib/gromox
 REDISDB=$(redis-cli --json config get dir dbfilename | jq '.dir + "/" + .dbfilename' -r)
 GROMWEB=/var/lib/grommunio-web
 
-#LASTBACKUPDIR=$(basename $(ls -td $BACKUPROOT/grombak/* | head -1))
-#NEWBACKUPDIR="$BACKUPROOT/grombak/$(date +%Y%m%d-%H%M)"
-NEWBACKUPDIR="$BACKUPROOT"/grombak/zfs
+BACKUPDIR="$BACKUPROOT"/grombak/zfs
 
 ETCFLDS="grom\|postfix\|redis\|nginx"
-#RSYNCOPTS="--partial --delete --relative --delete --recursive --update --links --perms --times --group --owner --devices --specials"
-#RSYNCOPTS="--partial --delete --relative --delete --recursive --update --links --perms --times"
 # skip all things that don't really matter as "owners" or "permissions" and we will likely never have devices or special in those directories
 # if we need to sync back we will use something like this
 # rsync --delete -a --info=PROGRESS2 --chown=grommunio:gromox --chmod=ug=rwX,o=  /path/to/backup/of/var/lib/gromox/* /var/lib/gromox/ 
@@ -126,29 +123,28 @@ fi
 [ -d "$SNAPPATH"/var/lib/gromox ] && GROMOXSRC="$SNAPPATH"/./var/lib/gromox
 
 #CREATE BACKUPDIRS
-mkdir -p "${NEWBACKUPDIR}"/{confs,mysql,fs} || echo "[ERROR] could not create Directories in ${BACKUPROOT}"
+mkdir -p "${BACKUPDIR}"/{confs,mysql,fs} || echo "[ERROR] could not create Directories in ${BACKUPROOT}"
 
 #CONFIGS
 echo
 echo "Creating archive of etc-configs"
 cd /
 find /etc -maxdepth 1 -type d -iregex ".*\(${ETCFLDS}\).*" -exec tar \
-	-czf "${NEWBACKUPDIR}/confs/etc.tar.gz" {} +  2>/dev/null || echo "[ERROR] config-files"
-ls -sh "${NEWBACKUPDIR}/confs/etc.tar.gz"
+	-czf "${BACKUPDIR}/confs/etc.tar.gz" {} +  2>/dev/null || echo "[ERROR] config-files"
+ls -sh "${BACKUPDIR}/confs/etc.tar.gz"
 #MYSQLDUMP
 # shellcheck disable=SC2154
 echo
 echo "Creating mysqldump"
 COMMAND="mysqldump --defaults-file=${CONFIG_FILE} -B ${MYSQL_DBNAME} ${MYSQLDUMPOPTS}"
-$COMMAND > "${NEWBACKUPDIR}/mysql/${MYSQL_DBNAME}.sql" || (echo "[ERROR] ${COMMAND}")
-ls -sh "${NEWBACKUPDIR}/mysql/${MYSQL_DBNAME}.sql"
+$COMMAND > "${BACKUPDIR}/mysql/${MYSQL_DBNAME}.sql" || (echo "[ERROR] ${COMMAND}")
+ls -sh "${BACKUPDIR}/mysql/${MYSQL_DBNAME}.sql"
 
 #RSYNC
 echo
 echo "Starting Rsync of $GROMOXSRC"
-#COMMAND="rsync ${RSYNCOPTS} --log-file $NEWBACKUPDIR/rsync.log --link-dest ../$LASTBACKUPDIR ${GROMOXSRC[@]} $NEWBACKUPDIR/fs"
-echo > "$NEWBACKUPDIR"/rsync.log
-COMMAND="rsync ${RSYNCOPTS} --log-file $NEWBACKUPDIR/rsync.log $GROMWEB $REDISDB $GROMOXSRC $NEWBACKUPDIR/fs/"
+echo > "$BACKUPDIR"/rsync.log
+COMMAND="rsync ${RSYNCOPTS} --log-file $BACKUPDIR/rsync.log $GROMWEB $REDISDB $GROMOXSRC $BACKUPDIR/fs/"
 #rm -rf ${LATESTBACKUPDIR}
 time -p $COMMAND || echo "[ERROR] ${COMMAND}"
 
