@@ -6,6 +6,14 @@ set -e
 
 [ -n "$DEBUGTHISSHIT" ] && set -x
 
+center() { echo "$@"| awk '{printf "%" int(40+length($0)/2) "s\n", $0 }' ; }
+cat << EOF
+################################################################################
+$(center GROMMUNIO @ "$(hostname -f)")
+################################################################################
+
+EOF
+
 date -Is
 
 BACKUPROOT=$(awk '/^\s+?#/{next} /grom.*nfs/ {print $2}' /etc/fstab)
@@ -26,7 +34,7 @@ ETCFLDS="grom\|postfix\|redis\|nginx"
 RSYNCOPTS="--partial --delete --relative --recursive --update --links --times"
 #RSYNCOPTS="-HPaS --partial"
 #if [ -t ]; then RSYNCOPTS="$RSYNCOPTS --progress"; fi
-[ -t 1 ] && RSYNCOPTS="$RSYNCOPTS --info=progress2"
+[ -t 1 ] && RSYNCOPTS="$RSYNCOPTS --info=progress2" || RSYNCOPTS="$RSYNCOPTS --stats"
 
 MYSQLDUMPOPTS="--single-transaction --routines --triggers --events --add-drop-database"
 
@@ -83,27 +91,28 @@ password=${MYSQL_PASSWORD}
 host=${MYSQL_HOST}
 CONFFILE
 
-echo "Runtime: $SECONDS seconds"
 echo "Running cleanup tasks for Mailboxes"
 if [ "$#" -eq 1 ] && [ "$1" = "-c" ]; then
 trashbin_purgetime=7d
 softdelete_purgetime=30d
 gromox-mbop foreach.here.mb \
+	\( emptyfld -R --delempty --soft -t "${trashbin_purgetime}" DELETED \) \
 	\( purge-softdelete -t "${softdelete_purgetime}" -r / \) \
 	\( purge-datafiles \) \
-	\( emptyfld -R --delempty -t "${trashbin_purgetime}" DELETED \) >/dev/null
+	\( vacuum \) \
+	\( recalc-sizes \) >/dev/null
 fi
 
-echo "Runtime: $SECONDS seconds"
-
+# freeze: halt all operations on a mailbox
+#gromox-mbop foreach.mb.here freeze
+#sleep 5
+#gromox-mbop foreach.mb.here unload
 # Try to create a LVM-Snapshot
 DISKSOURCE=$(findmnt /var/lib/gromox --noheadings --output SOURCE)
 # Check if it is a lvm volume
-if lvdisplay --quiet "$DISKSOURCE" >/dev/null; then
+if lvdisplay --quiet "$DISKSOURCE" >/dev/null 2>&1; then
 	echo "LVM-Snapshot"
-	# freeze: halt all operations on a mailbox
-	#gromox-mbop foreach.mb.here freeze
-	if lvcreate --quiet -l100%FREE --snapshot --name s_maildir /dev/gromox/maildir; then
+	if lvcreate --quiet -l100%FREE --snapshot --name s_maildir /dev/gromox/maildir 2>/dev/null; then
 	# thaw: unfreeze a mailbox
 	#gromox-mbop foreach.mb.here thaw 
 		## TEMPORARY MOUNT POINT
