@@ -1,24 +1,12 @@
 #!/usr/bin/env sh
 set -e
 # https://docs.grommunio.com/admin/operations.html#mail-requeueing
-QUEUE="${QUEUE:-/var/lib/gromox/queue}"
+queue="/var/lib/gromox/queue"
 j=0
-lookup() { find "$1" -type f -print ; }
-# loop until /save is empty or we counted to a thousand /o\
-while [ -n "$(lookup "$QUEUE"/save)" ]; do
-	sleep 0.5
-	# when things won't progress.. after ~15 minutes we break out
-	j=$((j+1))
-	[ "$j" = 1000 ] && break
-	saved="${saved:-"$(lookup "$QUEUE"/save |head -n 1)"}"
-	#mess="/var/lib/gromox/queue/mess/${saved##*/}"
-	#mess=/var/lib/gromox/queue/mess/"$(date +%s%N)"
-	# don't even bother, anything else than a low integer will fail /ö\
-	mess=/var/lib/gromox/queue/mess/1
-	# but only if /mess is empty
-	[ -f "$mess" ] && continue
-	mv "$saved" "$mess"
-	echo "message ${saved##*/} requeued as ${mess##*/}"
-	unset mess
-	unset saved
+for i in "$queue"/save/*; do
+    [ -f "$i" ] || continue
+    mv "$i" "$queue"/mess/$j
+    j=$((j+1))
+    command logger -t gromox-requeue "requeued $i"
 done
+

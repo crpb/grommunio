@@ -1,0 +1,8 @@
+[Unit]
+Description=Gromox Requeue
+
+[Path]
+DirectoryNotEmpty=/var/lib/gromox/queue/save
+
+[Install]
+WantedBy=timers.target
