@@ -24,14 +24,17 @@ defaults user.pop3_imap true
 #defaults user.properties.prohibitreceivequota "$(gb 1.6)"
 #defaults user.properties.storagequotalimit    "$(gb 1.8)"
 defaults domain.maxUser 25
-defaults user.smtp false
 defaults domain.chat false
 defaults user.changePassword false
-defaults user.privChat false
-defaults user.privVideo false
-defaults user.privFiles false
-defaults user.privArchive false
 defaults user.chat false
+defaults user.privArchive false
+defaults user.privChat false
+defaults user.privDav true
+defaults user.privEas true
+defaults user.privFiles false
+defaults user.privVideo false
+defaults user.privWeb true
+defaults user.smtp false
 
 #Now we will use dbconf for postfix-settings
 # - Setup dbconf-mechanism for postfix
@@ -49,11 +52,12 @@ postconf message_size_limit "$(mb 50)"
 # - various SSL/TLS-Settings
 postconf smtp_sasl_auth_enable yes
 postconf smtp_sasl_security_options noanonymous
-postconf smtp_use_tls yes
+postconf smtp_dns_support_level may
+postconf smtpd_dns_support_level enabled
 postconf smtpd_tls_mandatory_protocols '>=TLSv1.2,<=TLSv1.3'
 postconf smtpd_tls_protocols '>=TLSv1.2,<=TLSv1.3'
 # - Relay-Host
-table='lmdb' ; postconf -m |grep -q $table || table='hash'
+table='lmdb'; postconf -m |grep "$table" || table='hash'
 postconf smtp_sasl_password_maps "${table}:/etc/postfix/sasl_passwd"
 # the rest via ./postfix/postfix.sh for now. or just from you config-mgmt :P
 cat << 'EOF'
