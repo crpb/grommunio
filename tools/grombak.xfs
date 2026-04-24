@@ -32,7 +32,7 @@ ETCFLDS="grom\|postfix\|redis\|nginx"
 # skip all things that don't really matter as "owners" or "permissions" and we will likely never have devices or special in those directories
 # if we need to sync back we will use something like this
 # rsync --delete -a --info=PROGRESS2 --chown=grommunio:gromox --chmod=ug=rwX,o=  /path/to/backup/of/var/lib/gromox/* /var/lib/gromox/ 
-RSYNCOPTS="--partial --delete --relative --recursive --update --links --times --stats --human-readable"
+RSYNCOPTS="--partial --delete --relative --recursive --update --links --times --stats --human-readable --human-readable"
 # in active sesions we want some response
 [ -t 1 ] && RSYNCOPTS="$RSYNCOPTS --info=progress2"
 
