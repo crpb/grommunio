@@ -1,5 +1,9 @@
 #!/bin/bash
 # shellcheck disable=SC2015
+
+# cron me?
+# 15 */3 * * * systemd-inhibit grombak 2>&1
+
 [ "${FLOCKER}" != "$0" ] && exec env FLOCKER="$0" flock -en "$0" "$0" "$@" || :
 export PATH=/sbin:/usr/sbin:/usr/bin:/bin
 set -e
@@ -28,7 +32,7 @@ ETCFLDS="grom\|postfix\|redis\|nginx"
 # skip all things that don't really matter as "owners" or "permissions" and we will likely never have devices or special in those directories
 # if we need to sync back we will use something like this
 # rsync --delete -a --info=PROGRESS2 --chown=grommunio:gromox --chmod=ug=rwX,o=  /path/to/backup/of/var/lib/gromox/* /var/lib/gromox/ 
-RSYNCOPTS="--partial --delete --relative --recursive --update --links --times --stats"
+RSYNCOPTS="--partial --delete --relative --recursive --update --links --times --stats --human-readable"
 # in active sesions we want some response
 [ -t 1 ] && RSYNCOPTS="$RSYNCOPTS --info=progress2"
 
@@ -103,14 +107,28 @@ fi
 #gromox-mbop foreach.mb.here freeze
 #sleep 5
 #gromox-mbop foreach.mb.here unload
+# doesn't really work as expected..
 # Try to create a LVM-Snapshot
 DISKSOURCE=$(findmnt /var/lib/gromox --noheadings --output SOURCE)
 # Check if it is a lvm volume
 if lvdisplay --quiet "$DISKSOURCE" >/dev/null 2>&1; then
 	echo "LVM-Snapshot"
-	if lvcreate --quiet -l100%FREE --snapshot --name s_maildir /dev/gromox/maildir 2>/dev/null; then
-	# thaw: unfreeze a mailbox
-	#gromox-mbop foreach.mb.here thaw 
+	# Make sure no Snapshot is lingering
+	oldlvsnap="$(lvremove --quiet --yes /dev/gromox/s_maildir 2>/dev/null || echo $?)"
+	case $oldlvsnap in
+		5) true;;
+		0) echo 'INFO: deleted lingering snapshot!' >&2;;
+		*) echo 'ERROR: Removing old snapshot!!!' >&2;;
+	esac
+	# freeze: halt all operations on a mailbox
+	echo "FREEZE: $(date -u -Ins)"
+	gromox-mbop foreach.mb.here freeze
+	echo "FROZEN: $(date -u -Ins)"
+	if time lvcreate --quiet -l100%FREE --snapshot --name s_maildir /dev/gromox/maildir 2>/dev/null; then
+		# thaw: unfreeze a mailbox
+		echo "THAW: $(date -u -Ins)"
+		gromox-mbop foreach.mb.here thaw 
+		echo "DEFROSTED: $(date -u -Ins)"
 		## TEMPORARY MOUNT POINT
 		SNAPPATH="$(mktemp --suffix=lvmsnap --directory)"
 		mkdir -p "$SNAPPATH"/var/lib/gromox
@@ -118,6 +136,8 @@ if lvdisplay --quiet "$DISKSOURCE" >/dev/null 2>&1; then
 		/usr/bin/mount -o ro,nouuid /dev/gromox/s_maildir "$SNAPPATH"/var/lib/gromox
 	fi
 fi
+# Failsafe..
+gromox-mbop foreach.mb.here thaw 
 
 [ -d "$SNAPPATH"/var/lib/gromox ] && GROMOXSRC="$SNAPPATH"/./var/lib/gromox
 
@@ -171,5 +191,5 @@ fi
 sleep 1
 lvremove -f -y /dev/gromox/s_maildir 2>/dev/null || true
 [ -n "$CONFIG_FILE" ] && rm -f "$CONFIG_FILE"
-# if we ever triew freeze again we want to thaw the mailbox at the end!
+# if we ever try freeze again we want to make sure to thaw the mailboxes!
 gromox-mbop foreach.mb.here thaw
