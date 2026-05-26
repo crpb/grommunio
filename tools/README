@@ -131,8 +131,13 @@ doneo
 ###############################################################################
 # PURGE ALL DATA FROM A MAILBOX /ó\
 ###############################################################################
-
-gromox-mbop foreach.here.mb \( Aecho-username \) \( Aemptyfld --nuke-folders IPM_SUBTREE \) \( Apurge-softdelete -r IPM_SUBTREE \) \( Apurge-datafiles \) \( Avacuum \) \( Arecalc-sizes \) \( Aunload \)
+# 's/\ A//g'.. 
+gromox-mbop foreach.here.mb \( Aecho-username \) \
+    \( Aemptyfld --nuke-folders IPM_SUBTREE \) \
+    \( Apurge-softdelete -r IPM_SUBTREE \) \
+    \( Apurge-datafiles \) \( Avacuum \) \
+    \( Arecalc-sizes \) \
+    \( Aunload \)
 
 
 ###############################################################################
@@ -191,3 +196,32 @@ mariadb < /path/to/backup/of/mariadbd-dump_grommunio.sql
 # override /etc/grom*|postfix configurations with those from your backup 
 # Start services or do a reboot
 systemctl start $SERVICES
+
+
+###############################################################################
+# EXPORT/IMPORT 
+# For clean imports see "PURGE ALL DATA FROM A MAILBOX"
+#
+# Use "-u @DOM.TLD" for the Public Folders of a Domain.
+###############################################################################
+# Export all local user mailboxes - gromox-export(8)
+###############################################################################
+time ( EXPDIR=/mnt/p3-25-r10/nfs/gromi/dta/export/out; 
+for MBX in $(gromox-mbop foreach.mb.here echo-username); do 
+    echo $MBX ;
+    time gromox-export -u $MBX --loglevel=6  -s --mt -a -r / \
+        2> "$EXPDIR"/"$MBX".export.log \
+        > "$EXPDIR"/"$MBX".mt;
+done )
+
+###############################################################################
+# import all these exports on clean mailboxes - gromox-import(8) 
+###############################################################################
+mkdir -p ~/logs/import
+time ( EXPDIR=/mnt/p3-25-r10/nfs/gromi/dta/export/out;
+for MBX in $(gromox-mbop foreach.mb.here echo-username); do
+    echo $MBX ;
+    time gromox-import -u $MBX --loglevel=6 < "$EXPDIR"/"$MBX".mt \
+        2> ~/logs/import/"$MBX".import.log ;
+done )
+

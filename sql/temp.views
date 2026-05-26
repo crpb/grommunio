@@ -21,7 +21,8 @@ INSERT OR REPLACE INTO temp.perms("perm","name") VALUES
 ( 1024,'foldervisible'),
 ( 2048,'freebusysimple'),
 ( 4096,'freebusydetailed'),
-( 8192,'storeowner')
+( 8192,'storeowner'),
+('16383','all')
 ;
 
 -- FOLDER LOOKUP VIEW VIA FOLDERS INCLUDING PARENT
