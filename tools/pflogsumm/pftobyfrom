@@ -1,0 +1,232 @@
+#!/usr/bin/perl -w
+eval 'exec perl -S $0 "$@"'
+    if 0;
+
+=head1 NAME
+
+pftobyfrom - List "to" addresses by "from" whom in Postfix log file
+
+Copyright (C) 2007-2025 by James S. Seymour, Release 1.3
+
+=head1 SYNOPSIS
+    pftobyfrom -[bhrRv] <sender> [mailfile]
+
+    If no file(s) specified, reads from stdin.  Output is to stdout.
+
+=head1 DESCRIPTION
+
+    pftobyfrom parses Postfix log files to generate a list of "to" addresses,
+    based on a specified "from" address or address fragment.
+
+=head1 OPTIONS
+
+    -b Include bounces
+
+    -h Emit help message and exit
+
+    -r Include rejects
+
+    -R Hard rejects only
+
+    -v Emit version and exit
+
+=head1 RETURN VALUE
+
+    pftobyfrom doesn't return anything of interest to the shell.
+
+=head1 ERRORS
+
+    Error messages are emitted to stderr.
+
+=head1 EXAMPLES
+
+    pftobyfrom example.com /var/log/maillog
+
+    Generates a list of all the recipients of email from any senders
+    in "example.com"
+
+    As a convenience, pftobyfrom tries to intelligently determine how to
+    handle regexp meta-characters.  If it's passed a search expression
+    that does NOT contain meta-character escapes ("\"), it will assume
+    that "." and "+" are literals, and will escape them for you.  In the
+    example above, the "." in the FQDN part of the search term would've
+    been automatically escaped for the user.  Likewise:
+
+	pftobyfrom username+foo@example.com /var/log/maillog
+
+    would have the "+" and "." escaped.  If you wanted to find all
+    plussed senders for "username," you'd have to do:
+
+	pftobyfrom 'username\+.+@example\.com' /var/log/maillog
+
+=head1 SEE ALSO
+
+    pflogsumm, pffrombyto
+
+=head1 NOTES
+
+    All search terms and searched fields are lower-cased.
+
+    The pftobyfrom Home Page is at:
+
+	http://jimsun.LinxNet.com/postfix_contrib.html
+
+=head1 REQUIREMENTS
+
+    Perl
+
+=head1 LICENSE
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+    
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+    
+    You may have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+    USA.
+    
+    An on-line copy of the GNU General Public License can be found
+    http://www.fsf.org/copyleft/gpl.html.
+
+=cut
+
+use strict;
+use Getopt::Std;
+
+(my $progName = $0) =~ s/^.*?\///o;
+
+my $usageMsg = "Usage: $progName -[bhrRv] <sender> [mailfile]
+    -b Include bounces
+    -h Emit this help message and exit
+    -r Include rejects
+    -R Hard rejects only
+    -v Emit version and exit";
+
+my $revision = '1.3';
+
+use vars qw($opt_b $opt_h $opt_r $opt_R $opt_v);
+
+getopts('bhrRv') || die "$usageMsg\n";
+$opt_r = 1 if($opt_R);
+
+if($opt_h || $opt_v) {
+    print "$progName $revision\n" if($opt_v);
+    print "$usageMsg\n" if($opt_h);
+    exit;
+}
+
+my ($fromQid, %fromQids, %accList, $fromWhomFull, %rejList, %bncList);
+
+my ($fromWhom);
+
+die "$usageMsg\n" unless($fromWhom = shift @ARGV);
+
+my $doEscapes = !($fromWhom =~ /\\/);
+
+# Escape "."s and "+"s?
+$fromWhom =~ s/([\.\+])/\\$1/g if($doEscapes);
+
+while(<>) {
+    if(($fromQid, $fromWhomFull) = /:(?: \[ID \d+ mail\.info\])? ([A-F0-9]+): from=<(.*$fromWhom[^>]*)>/oi) {
+#	print "dbg: from: $fromQid $fromWhomFull\n";
+	$fromQids{$fromQid} = lc $fromWhomFull;
+	next;
+    }elsif($opt_r && (my ($respCode, $fromWhomFull, $to) = /: NOQUEUE: reject: RCPT from \S+: (\d+) .+from=<(.*$fromWhom[^>]*)> to=<([^>]+)>/oi)) {
+	++$rejList{lc $fromWhomFull}{"$to"} unless($opt_R && $respCode == 450);
+    }elsif((my $toQid, $to) = /:(?: \[ID \d+ mail\.info\])? ([A-F0-9]+): to=<([^>]+)>, .+ status=sent/o) {
+#	print "dbg: to: $toQid $to\n";
+	if($fromQids{$toQid} && ! $opt_R) {
+#	    print "dbg: match!\n";
+	    ++$accList{$fromQids{$toQid}}{$to};
+	}
+    }elsif($opt_b && (($toQid, $to) = /:(?: \[ID \d+ mail\.info\])? ([A-F0-9]+): to=<([^>]+)>, .+ status=bounced/o)) {
+#	print "dbg: to: $toQid $to\n";
+	if($fromQids{$toQid}) {
+#	    print "dbg: match!\n";
+	    ++$bncList{$fromQids{$toQid}}{$to};
+	}
+    }
+}
+
+if(%accList) {
+    print "\nDelivered:\n";
+    walk_nested_hash(\%accList, 0);
+}
+if($opt_r && %rejList) {
+    print "\nRejected:\n";
+    walk_nested_hash(\%rejList, 0);
+}
+if($opt_b && %bncList) {
+    print "\nBounced:\n";
+    walk_nested_hash(\%bncList, 0);
+}
+print "\n";
+
+
+# "walk" a "nested" hash
+sub walk_nested_hash {
+    my ($hashRef, $level) = @_;
+    $level += 2;
+    my $indents = ' ' x $level;
+    my ($keyName, $hashVal) = each(%$hashRef);
+
+    if(ref($hashVal) eq 'HASH') {
+	foreach (sort keys %$hashRef) {
+	    print "$indents$_";
+	    # If the next hash is finally the data, total the
+	    # counts for the report and print
+	    my $hashVal2 = (each(%{$hashRef->{$_}}))[1];
+	    keys(%{$hashRef->{$_}});	# "reset" hash iterator
+	    unless(ref($hashVal2) eq 'HASH') {
+		my $cnt = 0;
+		$cnt += $_ foreach (values %{$hashRef->{$_}});
+		print " (total: $cnt)";
+	    }
+	    print "\n";
+	    walk_nested_hash($hashRef->{$_}, $level);
+	}
+    } else {
+	really_print_hash_by_cnt_vals($hashRef, 0, $indents);
+    }
+}
+
+
+# *really* print hash contents sorted by numeric values in descending
+# order (i.e.: highest first), then by IP/addr, in ascending order.
+sub really_print_hash_by_cnt_vals {
+    my($hashRef, $cnt, $indents) = @_;
+
+    foreach (map { $_->[0] }
+	     sort { $b->[1] <=> $a->[1] || $a->[2] cmp $b->[2] }
+	     map { [ $_, $hashRef->{$_}, normalize_host($_) ] }
+	     (keys(%$hashRef)))
+    {
+        printf "$indents%6d  %s\n", $hashRef->{$_}, $_;
+        last if --$cnt == 0;
+    }
+}
+
+# Normalize IP addr or hostname
+# (Note: Makes no effort to normalize IPv6 addrs.  Just returns them
+# as they're passed-in.)
+sub normalize_host {
+    # For IP addrs and hostnames: lop off possible " (user@dom.ain)" bit
+    my $norm1 = (split(/\s/, $_[0]))[0];
+
+    if((my @octets = ($norm1 =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/o)) == 4) {
+	# Dotted-quad IP address
+	return(pack('C4', @octets));
+    } else {
+	# Possibly hostname or user@dom.ain
+	#return(join( '', map { lc $_ } reverse split /[.@]/, $norm1 ));
+	return lc $_[0];
+    }
+}
+
