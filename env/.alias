@@ -1,10 +1,15 @@
 # vim filetupe=bash
 ga() { grommunio-admin $@ ; }
 complete -F _python_argcomplete grommunio-admin ga
-#gromtail() { find /var/log/grom* /var/log/nginx /var/log/mysql /var/log/php* -type f -iname "*log" -exec tail -f "{}" + | awk '/^==> / {a=substr($0, 5, length-8); next} {print a":"$0}' ; }
-gromtail() { find /var/log/grom* /var/log/nginx /var/log/mysql /var/log/php* -type f -iname "*log" -exec tail -f "{}" + ; }
+gromtail() { [ $#  -eq 1 ] && lines="$1"; find /var/log/grom* /var/log/nginx /var/log/mysql /var/log/php* -type f -iname "*log" -exec tail -n "${lines:=50}" -F "{}" + | awk '/^==> / {a=substr($0, 5, length-8); next} {print a":"$0}' ; }
 alias _grom_clear_index='rm -Rf /var/lib/grommunio-web/sqlite-index/*;  /usr/sbin/grommunio-index-run.sh'
-alias bat='bat -p' #BAT CAT!
+alias cdt='builtin cd $(mktemp -d);builtin pwd'
+#BAT CAT
+if command -v bat >/dev/nulll; then
+	alias cat='bat -pp'
+elif command -v batcat >/dev/null; then
+	alias cat='batcat -pp'
+fi
 alias fail2list='fail2ban-client status |sed -n "s/,//g;s/.*Jail list:[[:space:]]//p"|xargs -n 1 fail2ban-client status |grep -E "^Status|Banned IP list"'
 #alias gdiff='git diff HEAD^ HEAD'
 alias gcom='git commit --verbose --status'
@@ -20,7 +25,7 @@ alias gstat='git status -s -b -u'
 alias gtree="tree -I \"$(grep -hvE '^$|^#' {,$(git rev-parse --show-toplevel 2>/dev/null)/}.gitignore $(git rev-parse --show-toplevel 2>/dev/null)/.git/info/exclude 2>/dev/null |sed 's:/$::'|tr \\n '\|')\""
 alias grep='grep -iE --color'
 alias gromdf='df -h / /var/lib/gromox /boot'
-alias gromjournal='journalctl -f -u grommunio-admin-api.service -u grommunio-cui@tty1.service -u gromox-delivery-queue.service -u gromox-delivery.service -u gromox-event.service -u gromox-http.service -u gromox-imap.service -u gromox-midb.service -u gromox-pop3.service -u gromox-timer.service -u gromox-zcore.service -u nginx.service -u php-fpm.service -u postfix.service'
+alias gromjournal='journalctl -f --output=short-precise -u grommunio-admin-api.service -u grommunio-cui@tty1.service -u gromox-delivery-queue.service -u gromox-delivery.service -u gromox-event.service -u gromox-http.service -u gromox-istore.service -u gromox-imap.service -u gromox-midb.service -u gromox-pop3.service -u gromox-timer.service -u gromox-zcore.service -u nginx.service -u php-fpm.service -u postfix.service'
 alias gst='grommunio-sync-top'
 alias l='ls -lah'
 alias la='ls -lAh'
@@ -49,7 +54,7 @@ zypup() {
 		if [ -f /var/lib/check_mk_agent/cache/plugins_mk_zypper.cache ]; then
 			rm -vf /var/lib/check_mk_agent/cache/plugins_mk_zypper.cache
 		fi
-		NEEDRESTART=$(zypper ps --print "systemctl status %s" | awk '/systemctl status / { line = (line? line FS $3: $3) } END { print line }')
+		NEEDRESTART=$(zypper ps --print "%s" |grep -v dbus |tr '\n' ' ')
 		if test -n "$NEEDRESTART"; then
 			echo "There are Services which might need a restart"
 			echo -e "\v\t$NEEDRESTART\v"
