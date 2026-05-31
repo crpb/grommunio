@@ -20,7 +20,7 @@ if [ $# = 1 ]; then
 fi
 printf '{"%s": [\n' "${LINK}"
 (
-command mysql grommunio --skip-column-names \
+command mariadb grommunio --skip-column-names \
 	--execute="$MQUERY" |
 	while read -r username maildir; do
 		printf '{ "mailbox": "%s",
