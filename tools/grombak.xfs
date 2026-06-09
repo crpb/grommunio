@@ -142,7 +142,17 @@ gromox-mbop foreach.mb.here thaw
 [ -d "$SNAPPATH"/var/lib/gromox ] && GROMOXSRC="$SNAPPATH"/./var/lib/gromox
 
 #CREATE BACKUPDIRS
-mkdir -p "${BACKUPDIR}"/{confs,mysql,fs} || echo "[ERROR] could not create Directories in ${BACKUPROOT}"
+mkdir -p "${BACKUPDIR}"/{confs,mysql,fs,websettings} || echo "[ERROR] could not create Directories in ${BACKUPROOT}"
+
+#WEBSETTINGS
+echo
+echo "Creating backup of users web-settings"
+for user in $(gromox-mbop foreach.here.mb echo-username); do
+	gromox-mbop -u "$user" get-websettings > "$BACKUPDIR"/websettings/"$user".json
+	gromox-mbop -u "$user" get-photo > "$BACKUPDIR"/websettings/"$user".photo
+	gromox-mbop -u "$user" get-websettings-persistent > "$BACKUPDIR"/websettings/"$user".persistent.json
+	gromox-mbop -u "$user" get-websettings-recipients > "$BACKUPDIR"/websettings/"$user".recipients.json
+done
 
 #CONFIGS
 echo
@@ -155,7 +165,7 @@ ls -sh "${BACKUPDIR}/confs/etc.tar.gz"
 # shellcheck disable=SC2154
 echo
 echo "Creating mysqldump"
-COMMAND="mysqldump --defaults-file=${CONFIG_FILE} -B ${MYSQL_DBNAME} ${MYSQLDUMPOPTS}"
+COMMAND="mariadb-dump --defaults-file=${CONFIG_FILE} -B ${MYSQL_DBNAME} ${MYSQLDUMPOPTS}"
 $COMMAND > "${BACKUPDIR}/mysql/${MYSQL_DBNAME}.sql" || (echo "[ERROR] ${COMMAND}")
 ls -sh "${BACKUPDIR}/mysql/${MYSQL_DBNAME}.sql"
 
