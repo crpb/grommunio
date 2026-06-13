@@ -1,7 +1,11 @@
 #!/bin/bash
 shopt -s expand_aliases
-alias sslscan-short='sslscan --no-cipher-details --no-ciphersuites --no-compression --no-fallback --no-groups --no-heartbleed --no-renegotiation'
-alias sslscan-ocsp='sslscan --no-cipher-details --no-ciphersuites --no-compression --no-fallback --no-groups --no-heartbleed --no-renegotiation --ocsp'
+sslscan-short() { 
+	sslscan --no-cipher-details --no-ciphersuites --no-compression \
+		--no-fallback --no-groups --no-heartbleed --no-renegotiation \
+		--timeout=5s --connect-timeout=15s $* ;
+	}
+sslscan-ocsp() { sslscan-short --ocsp $* ;}
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # Check if binary exist
 is_binary_exist() {
