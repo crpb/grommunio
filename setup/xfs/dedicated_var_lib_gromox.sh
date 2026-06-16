@@ -2,9 +2,9 @@
 set -e
 if [ $# -eq 0 ]; then
   echo "scanning for new disks"
-  partprobe --summary
+  partprobe --summary 2>/dev/null || true
   # get only real disks, no cdrom, swap, special-cases..
-  REALDISKS=$(lsblk -npd -o NAME,SIZE,FSTYPE,LABEL -e "$(awk '/(zram|zvol)/ {printf "%s,",$1}' /proc/devices)"7,11)
+  REALDISKS=$(lsblk -npd -o NAME,SIZE,FSTYPE,LABEL --filter 'TYPE != "rom"' -e "$(awk '/(zram|zvol)/ {printf "%s,",$1}' /proc/devices)"7,11)
   echo "Listing of all real disks:"
   echo "$REALDISKS"
   echo "Next time you run me supply either one or two(raid1) disks"
@@ -51,10 +51,11 @@ UUID="$(lsblk -f /dev/gromox/maildir --noheadings --output UUID)"
 FSTAB="UUID=${UUID} /var/lib/gromox xfs defaults 0 0"
 printf '%s\n' "$FSTAB" |tee -a /etc/fstab
 echo "Moving original maildir away"
-mv -v /var/lib/gromox /var/lib/gromox-bak
+! [ -d /var/lib/gromox-bak ] && mv /var/lib/gromox /var/lib/gromox-bak
 mkdir -v /var/lib/gromox
 mount -v /var/lib/gromox
-cp -va /var/lib/gromox-bak/* /var/lib/gromox/
+[ -d /var/lib/gromox-bak ] && cp -va /var/lib/gromox-bak/* /var/lib/gromox/ 
 chown -v gromox:gromox /var/lib/gromox
 chmod -v 770 /var/lib/gromox
-rm -Rfv /var/lib/gromox.bak
+#rm -Rfv /var/lib/gromox.bak
+
