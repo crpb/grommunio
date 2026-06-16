@@ -160,8 +160,8 @@ _grom_repair_mailboxes() {
 
       # If necessary repair the mailbox with the -p flag
       if [[ $cnt -gt 0 ]]; then
-	cnt=$(/usr/sbin/gromox-mbck -p "$dbfile" 2> >(logger -t grom_repair_mailbox) | awk -F'[][ ]' 'NR==2 && $(NF-1)=="fixed" {print $(NF-5)}')
-	logger -t grom_repair_mailbox "$user: ${cnt:=0} issues fixed"
+        cnt=$(/usr/sbin/gromox-mbck -p "$dbfile" 2> >(logger -t grom_repair_mailbox) | awk -F'[][ ]' 'NR==2 && $(NF-1)=="fixed" {print $(NF-5)}')
+        logger -t grom_repair_mailbox "$user: ${cnt:=0} issues fixed"
       fi
     fi
   fi
@@ -329,7 +329,7 @@ _grom_purge_messages() {
         IFS=\| read -r fid msgid <<< $obj
 
         # delete the message suppressing success messages
-	if ! /usr/sbin/gromox-mbop -u $user delmsg -f $fid $msgid >/dev/null 2> >(logger -t grom_purge_messages); then
+        if ! /usr/sbin/gromox-mbop -u $user delmsg -f $fid $msgid >/dev/null 2> >(logger -t grom_purge_messages); then
           ((cnt=cnt-1))
           printf '%s: Error: Deleting message %s/%s failed.' "$user" "$fid" "$msgid" | logger -t grom_purge_messages
         fi
@@ -537,8 +537,8 @@ _grom_backup_objects() {
           *)                  exportbin="gromox-exm2eml";  ext="eml";;
         esac
 
-	# export the message
-	if ! $exportbin -u "$user" "$msgid" > "$target_folder/$fname/$msgid.$ext" 2> >(logger -t grom_backup_objects); then
+        # export the message
+        if ! $exportbin -u "$user" "$msgid" > "$target_folder/$fname/$msgid.$ext" 2> >(logger -t grom_backup_objects); then
           ((cnt=cnt-1))
           printf '%s: Error: Exporting %s item %s/%s.%s failed.' "$user" "$msgclass" "$fname" "$msgid" "$ext" | logger -t grom_backup_objects
         fi   

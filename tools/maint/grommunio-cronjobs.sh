@@ -1,8 +1,21 @@
 #!/bin/bash
 
 # Load function library
-. /usr/local/bin/grommunio-functions.sh
+# shellcheck disable=SC1091
+. /usr/local/bin/grommunio-functions.sh || true
+. /root/scripts/tools/maint/grommunio-functions.sh || true
+#
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+if [ -f "$SCRIPT_DIR"/grommunio-functions.sh ]; then
+  . "$SCRIPT_DIR"/grommunio-functions.sh
+else
+  echo "Could not find grommunio-functions.sh!" >&2
+  exit 1
+fi
 
+
+# Check for the existance of a sources function.
+[ "$(type -t grom_users)" = 'function' ] || return 1
 
 ### Retrieve data ###
 

@@ -1,7 +1,20 @@
 #!/bin/bash
 
 # Load function library
-. /usr/local/bin/grommunio-functions.sh
+# shellcheck disable=SC1091
+. /usr/local/bin/grommunio-functions.sh || true
+. /root/scripts/tools/maint/grommunio-functions.sh || true
+#
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+if [ -f "$SCRIPT_DIR"/grommunio-functions.sh ]; then
+	. "$SCRIPT_DIR"/grommunio-functions.sh
+else
+	echo "Could not find grommunio-functions.sh!" >&2
+	exit 1
+fi
+
+# Check for the existance of a sources function.
+[ "$(type -t grom_users)" = 'function' ] || return 1
 
 
 ### Retrieve data ###
@@ -30,7 +43,7 @@
 # domain  can be a domain name such as 'abc.com' or 'all' for all domains
 
 # Example 1: Repair mailboxes of all domains
-grom_repair_mailboxes all
+#grom_repair_mailboxes all
 # Example 2: Repair mailboxes of domain abc.com
 #grom_repair_mailboxes abc.com
 
@@ -45,7 +58,7 @@ grom_repair_mailboxes all
 # retention_days  integer to define the retention period, e.g. 30 days => all messages older than 30 days will be deleted
 
 # Example 1: Delete all junk messages older than 30 days for all domains
-grom_purge_messages all JUNK 30
+#grom_purge_messages all JUNK 30
 # Example 2: Delete all messages older than 365 days (1 year) for all domains
 #grom_purge_messages all all 365
 # Example 3: Delete all messages older than 730 days (2 years) for domain abc.com
@@ -88,7 +101,15 @@ grom_purge_messages all JUNK 30
 # message_type   one of the following types: CALENDAR, CONTACTS, JOURNAL, TASKS, NOTES or all
 
 # Example 1: Backup all objects for all domains to the homedir/backup folder
-grom_backup_objects all ~/backup all
+#mkdir -p ~/backup || exit 1
+#grom_backup_objects all ~/backup all
+#
+# Detect some magic place
+BACKUPROOT=$(awk '/^\s+?#/{next} /grom.*nfs/ {print $2}' /etc/fstab)
+BACKUPPATH="$BACKUPROOT"/grommunio-maintenance/grom_backup_objects_all
+mkdir -p "$BACKUPPATH" || exit 1
+grom_backup_objects all "$BACKUPPATH" all
+
 # Example 2: Backup all calendar and contact objects for all domains
 #grom_backup_objects all ~/backup CALENDAR
 #grom_backup_objects all ~/backup CONTACTS
