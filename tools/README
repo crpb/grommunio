@@ -179,21 +179,28 @@ EOF
 
 
 ###############################################################################
-# Full restore from rsync backup
+# Full restore from rsync backup - see grombak.xfs for how that can be done
 ###############################################################################
 # On a new system run `grommunio-setup` to get everything ready so far
-# TIP: use the same mariadb password as from the old system during setup
+# TIP: use the same mariadb password as from the old system during setup so
+# you can overwrite your configuration with that from the backups
 # Stop services and timers (e.g. grommunio-index) which might interfere
-SERVICES=$(systemctl --output json list-units | jq -r '.[]|select(.unit|test("(^grom.*|nginx|.*fpm).(service|timer)")).unit')
+SERVICES=$(systemctl --state=loaded --output json list-units | jq -r '.[]|select(.unit|test("(^grom.*|nginx|.*fpm).(service|timer)")).unit')
 systemctl stop $SERVICES
+BAK=/path/to/backup/of/var/lib
 # Import Mailboxdata and set correct permissions
-rsync -a --info=PROGRESS2 --chown=grommunio:gromox --chmod=ug=rwX,o=  /path/to/backup/of/var/lib/gromox/* /var/lib/gromox/
+rsync -au --stats -hh --info=PROGRESS2 --chown=grommunio:gromox --chmod=ug=rwX,o=  $BAK/gromox/ /var/lib/gromox
 # If you took an backup of /var/lib/grommunio-web
-rsync -a --info=PROGRESS2 --chown=groweb:groweb --chmod=ug=rwX,o=  /path/to/backup/of/var/lib/grommunio-web/* /var/lib/grommunio-web
+rsync -au --stats -hh --info=PROGRESS2 --chown=groweb:groweb --chmod=ug=rwX,o=  $BAK/grommunio-web/ /var/lib/grommunio-web
 chown -Rf groindex /var/lib/grommunio-web/sqlite-index
+# grommunio-antispam/rspamd
+rsync -au --stats -hh --info=PROGRESS2 --chown=groas:grommunio --chmod=ug=rwX,o=  $BAK/grommunio-antispam/ /var/lib/grommunio-antispam
+# Redis DB / rspamd + grommunio-sync
+rsync -au --stats -hh --info=PROGRESS2 --chown=redis:redis --chmod=ug=rwX,o=  $BAK/redis/ /var/lib/redis
 # Import mysql database
-mariadb < /path/to/backup/of/mariadbd-dump_grommunio.sql
-# override /etc/grom*|postfix configurations with those from your backup
+mariadb < $BAK/mysql/grommunio.sql
+# override/merge /etc/grom*|postfix configurations with those from your backup
+## SYNC EVERYTHING A SECOND TIME TO SEE IT FITS
 # Start services or do a reboot
 systemctl start $SERVICES
 
@@ -225,3 +232,8 @@ for MBX in $(gromox-mbop foreach.mb.here echo-username); do
         2> ~/logs/import/"$MBX".import.log ;
 done )
 
+
+# BULK INDEXING
+systemctl stop grommunio-index.timer
+mbxs=( $(gromox-mbop foreach.mb.here echo-username) )
+parallel --jobs $(nproc) "gromox-mbop -u '{1}' echo-maildir | while read -r maildir; do echo grommunio-index -c -v \$maildir 2>'{1}'.err | tee '{1}'.log ; done " ::: ${mbxs[@]} ::: {1} ; systemctl start grommunio-index.timer ;

@@ -20,19 +20,27 @@ EOF
 
 date -Is
 
-# /etc/fstab:10.10.10.252:/mnt/poolN/nfs/backup/gromi	/mnt/poolN/nfs/backup/gromi	nfs     x-systemd.automount,x-systemd.requires=network.target,x-systemd.mount-timeout=10   0 0
+# /etc/fstab:10.10.10.252:/mnt/poolN/nfs/backup/gromi	\
+# 	/mnt/poolN/nfs/backup/gromi	nfs     \
+# 	x-systemd.automount,x-systemd.requires=network.target,x-systemd.mount-timeout=10   0 0
 BACKUPROOT=$(awk '/^\s+?#/{next} /grom.*nfs/ {print $2}' /etc/fstab)
 GROMOXSRC=/var/lib/gromox
-REDISDB=$(redis-cli --json config get dir dbfilename | jq '.dir + "/" + .dbfilename' -r)
+#REDISDB=$(redis-cli --json config get dir dbfilename | jq '.dir + "/" + .dbfilename' -r)
+# as we might have multiple databases just sync everything
+REDISDB=/var/lib/redis
 GROMWEB=/var/lib/grommunio-web
+RSPAMD=/var/lib/grommunio-antispam
+[ -f /var/lib/rspamd ] && RSPAMD=/var/lib/rspamd
 
 BACKUPDIR="$BACKUPROOT"/grombak/zfs
 
-ETCFLDS="grom\|postfix\|redis\|nginx"
-# skip all things that don't really matter as "owners" or "permissions" and we will likely never have devices or special in those directories
+ETCFLDS="grom\|postfix\|redis\|nginx\|rspamd"
+# skip all things that don't really matter as "owners" or "permissions" and
+# we will likely never have devices or special in those directories
 # if we need to sync back we will use something like this
-# rsync --delete -a --info=PROGRESS2 --chown=grommunio:gromox --chmod=ug=rwX,o=  /path/to/backup/of/var/lib/gromox/* /var/lib/gromox/ 
-RSYNCOPTS="--partial --delete --relative --recursive --update --links --times --stats --human-readable --human-readable"
+# rsync --delete -a --info=PROGRESS2 --chown=grommunio:gromox \
+# --chmod=ug=rwX,o=  /path/to/backup/of/var/lib/gromox/* /var/lib/gromox/ 
+RSYNCOPTS="--partial --delete --relative --recursive --update --links --times --stats --human-readable --human-readable --ignore-missing-args --log-file=$BACKUPDIR/rsync.log"
 # in active sesions we want some response
 [ -t 1 ] && RSYNCOPTS="$RSYNCOPTS --info=progress2"
 
@@ -93,8 +101,8 @@ CONFFILE
 
 echo "Running cleanup tasks for Mailboxes"
 if [ "$#" -eq 1 ] && [ "$1" = "-c" ]; then
-trashbin_purgetime=7d
-softdelete_purgetime=30d
+trashbin_purgetime=31d10h
+softdelete_purgetime=70d20h
 gromox-mbop foreach.here.mb \
 	\( emptyfld -R --delempty --soft -t "${trashbin_purgetime}" DELETED \) \
 	\( purge-softdelete -t "${softdelete_purgetime}" -r / \) \
@@ -103,18 +111,48 @@ gromox-mbop foreach.here.mb \
 	\( recalc-sizes \) >/dev/null
 fi
 
-# freeze: halt all operations on a mailbox
-#gromox-mbop foreach.mb.here freeze
-#sleep 5
-#gromox-mbop foreach.mb.here unload
-# doesn't really work as expected..
+#CREATE BACKUPDIRS
+mkdir -p "${BACKUPDIR}"/{confs,mysql,fs,websettings} \
+	|| echo "[ERROR] could not create Directories in ${BACKUPROOT}"
+
+#WEBSETTINGS
+echo
+echo "Creating backup of users web-settings"
+for user in $(gromox-mbop foreach.here.mb echo-username); do
+	gromox-mbop -u "$user" get-websettings \
+		> "$BACKUPDIR"/websettings/"$user".json
+	gromox-mbop -u "$user" get-photo \
+		> "$BACKUPDIR"/websettings/"$user".photo
+	gromox-mbop -u "$user" get-websettings-persistent \
+		> "$BACKUPDIR"/websettings/"$user".persistent.json
+	gromox-mbop -u "$user" get-websettings-recipients \
+		> "$BACKUPDIR"/websettings/"$user".recipients.json
+done
+
+#CONFIGS
+echo
+echo "Creating archive of etc-configs"
+cd /
+find /etc -maxdepth 1 -type d -iregex ".*\(${ETCFLDS}\).*" -exec tar \
+	-czf "${BACKUPDIR}/confs/etc.tar.gz" {} +  \
+	2>/dev/null || echo "[ERROR] config-files"
+ls -sh "${BACKUPDIR}/confs/etc.tar.gz"
+#MYSQLDUMP
+# shellcheck disable=SC2154
+echo
+echo "Creating mysqldump"
+COMMAND="mariadb-dump --defaults-file=${CONFIG_FILE} -B ${MYSQL_DBNAME} ${MYSQLDUMPOPTS}"
+$COMMAND > "${BACKUPDIR}/mysql/${MYSQL_DBNAME}.sql" || (echo "[ERROR] ${COMMAND}")
+ls -sh "${BACKUPDIR}/mysql/${MYSQL_DBNAME}.sql"
+#
 # Try to create a LVM-Snapshot
 DISKSOURCE=$(findmnt /var/lib/gromox --noheadings --output SOURCE)
 # Check if it is a lvm volume
 if lvdisplay --quiet "$DISKSOURCE" >/dev/null 2>&1; then
 	echo "LVM-Snapshot"
 	# Make sure no Snapshot is lingering
-	oldlvsnap="$(lvremove --quiet --yes /dev/gromox/s_maildir 2>/dev/null || echo $?)"
+	oldlvsnap="$(lvremove --quiet --yes /dev/gromox/s_maildir \
+		2>/dev/null || echo $?)"
 	case $oldlvsnap in
 		5) true;;
 		0) echo 'INFO: deleted lingering snapshot!' >&2;;
@@ -124,7 +162,8 @@ if lvdisplay --quiet "$DISKSOURCE" >/dev/null 2>&1; then
 	echo "FREEZE: $(date -u -Ins)"
 	gromox-mbop foreach.mb.here freeze
 	echo "FROZEN: $(date -u -Ins)"
-	if time lvcreate --quiet -l100%FREE --snapshot --name s_maildir /dev/gromox/maildir 2>/dev/null; then
+	if time lvcreate --quiet -l100%FREE --snapshot --name s_maildir \
+			/dev/gromox/maildir 2>/dev/null; then
 		# thaw: unfreeze a mailbox
 		echo "THAW: $(date -u -Ins)"
 		gromox-mbop foreach.mb.here thaw 
@@ -133,7 +172,8 @@ if lvdisplay --quiet "$DISKSOURCE" >/dev/null 2>&1; then
 		SNAPPATH="$(mktemp --suffix=lvmsnap --directory)"
 		mkdir -p "$SNAPPATH"/var/lib/gromox
 		## MOUNT XFS ( we need -o nouuid as xfs doesn't like duplicates of UUIDs )
-		/usr/bin/mount -o ro,nouuid /dev/gromox/s_maildir "$SNAPPATH"/var/lib/gromox
+		/usr/bin/mount -o ro,nouuid /dev/gromox/s_maildir \
+			"$SNAPPATH"/var/lib/gromox
 	fi
 fi
 # Failsafe..
@@ -141,58 +181,20 @@ gromox-mbop foreach.mb.here thaw
 
 [ -d "$SNAPPATH"/var/lib/gromox ] && GROMOXSRC="$SNAPPATH"/./var/lib/gromox
 
-#CREATE BACKUPDIRS
-mkdir -p "${BACKUPDIR}"/{confs,mysql,fs,websettings} || echo "[ERROR] could not create Directories in ${BACKUPROOT}"
-
-#WEBSETTINGS
-echo
-echo "Creating backup of users web-settings"
-for user in $(gromox-mbop foreach.here.mb echo-username); do
-	gromox-mbop -u "$user" get-websettings > "$BACKUPDIR"/websettings/"$user".json
-	gromox-mbop -u "$user" get-photo > "$BACKUPDIR"/websettings/"$user".photo
-	gromox-mbop -u "$user" get-websettings-persistent > "$BACKUPDIR"/websettings/"$user".persistent.json
-	gromox-mbop -u "$user" get-websettings-recipients > "$BACKUPDIR"/websettings/"$user".recipients.json
-done
-
-#CONFIGS
-echo
-echo "Creating archive of etc-configs"
-cd /
-find /etc -maxdepth 1 -type d -iregex ".*\(${ETCFLDS}\).*" -exec tar \
-	-czf "${BACKUPDIR}/confs/etc.tar.gz" {} +  2>/dev/null || echo "[ERROR] config-files"
-ls -sh "${BACKUPDIR}/confs/etc.tar.gz"
-#MYSQLDUMP
-# shellcheck disable=SC2154
-echo
-echo "Creating mysqldump"
-COMMAND="mariadb-dump --defaults-file=${CONFIG_FILE} -B ${MYSQL_DBNAME} ${MYSQLDUMPOPTS}"
-$COMMAND > "${BACKUPDIR}/mysql/${MYSQL_DBNAME}.sql" || (echo "[ERROR] ${COMMAND}")
-ls -sh "${BACKUPDIR}/mysql/${MYSQL_DBNAME}.sql"
-
 #RSYNC
+rm -f "$BACKUPDIR"/rsync.log
 echo
-echo "Starting Rsync of $GROMOXSRC"
-echo > "$BACKUPDIR"/rsync.log
-COMMAND="rsync ${RSYNCOPTS} --log-file $BACKUPDIR/rsync.log $GROMWEB $REDISDB $GROMOXSRC $BACKUPDIR/fs/"
-#rm -rf ${LATESTBACKUPDIR}
+echo "Starting Rsync of $GROMWEB $RSPAMD $REDISDB $GROMOXSRC" | fold -s
+# shellcheck disable=SC2089
+COMMAND="rsync ${RSYNCOPTS} $RSPAMD $GROMWEB $REDISDB $GROMOXSRC $BACKUPDIR/fs/"
+#COMMAND="rsync ${RSYNCOPTS} --log-file=$BACKUPDIR/rsync.log $RSPAMD $GROMWEB $REDISDB $GROMOXSRC $BACKUPDIR/fs/"
+# shellcheck disable=SC2090
 time -p $COMMAND || echo "[ERROR] ${COMMAND}"
 
-echo "Backup finished"
-echo "Runtime: $SECONDS seconds"
-echo
-echo "Data usage:"
-echo "grommunio-admin fs du:"
-time -p grommunio-admin fs du
-echo
-date -Is
 
-for svc in gromox-midb gromox-imap gromox-pop3; do
-	if ! systemctl --quiet --system is-active ${svc}.service; then
-		systemctl --system reload-or-restart ${svc}.service
-	fi
-done
 SNAPMOUNT=$(findmnt /dev/gromox/s_maildir -o TARGET -n)
 if [ -n "$SNAPMOUNT" ]; then
+	echo
 	echo "Cleaning up mounts and temporary directories"
 	umount --verbose "$SNAPMOUNT" || true
 	sleep 1
@@ -202,4 +204,20 @@ sleep 1
 lvremove -f -y /dev/gromox/s_maildir 2>/dev/null || true
 [ -n "$CONFIG_FILE" ] && rm -f "$CONFIG_FILE"
 # if we ever try freeze again we want to make sure to thaw the mailboxes!
-gromox-mbop foreach.mb.here thaw
+
+for svc in gromox-midb gromox-imap gromox-pop3; do
+	if ! systemctl --quiet --system is-active ${svc}.service; then
+		systemctl --system reload-or-restart ${svc}.service
+	fi
+done
+
+cat <<EOF
+Backup finished
+Runtime: $SECONDS seconds
+
+Data usage:
+grommunio-admin fs du:
+EOF
+grommunio-admin fs du
+echo
+date -Is
