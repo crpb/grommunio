@@ -21,4 +21,8 @@ uninstall:
 	rm -vf /etc/systemd/system/grommunio-ham-run.service
 	rm -vf /etc/systemd/system/grommunio-ham-run.timer
 	rm -vf /usr/local/sbin/grommunio-ham-run.sh
-	systemcel daemon-reload
+	rm -vf /usr/local/sbin/grommunio-spam-run.sh
+	rm -vf /etc/systemd/system/grommunio-spam-run.service.d/override.conf
+	rmdir -v --ignore-fail-on-non-empty \
+		/etc/systemd/system/grommunio-spam-run.service.d
+	systemctl daemon-reload

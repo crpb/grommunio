@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# (c) 2022-2026 by Walter@Hofstaedtler.com
+# (c) 2022-2026 by Walter@Hofstaedtler.com and CRPB
 # Stored in WHIE GIT: git@icc-file:/whie/grommunio/tools.git
 #
 # This is free software, use it at your own risk.
@@ -46,34 +46,36 @@
 # Apr. 2026, Minor corrections, mostly style.
 # May. 2026, Added Recalculates the store size after purge-datafiles.
 #            Replaced color code from Red with bright Red.
-#
+# Jun. 2026, CRPB added a email logging functionality and fixed 2 errors.
+#            Test for mail tool in path. Added some debug output.
+# Aug. 2026, Added a warning about gromox-cleaner and how to disable gromox-cleaner.timer.
 #
 #
 # Installation:
-# 1. Place this script in the /scripts/cron/ directory as g_cleaner.sh
+# 1. Place this script in the '/scripts/cron/' directory as 'g_cleaner.sh'.
 # 2. Use the dos2unix command to convert the script to Linux line feeds:
-#    dos2unix /scripts/cron/g_cleaner.sh
+#    `dos2unix /scripts/cron/g_cleaner.sh`
 # 3. Make the script executable:
-#    chmod +x /scripts/cron/g_cleaner.sh
-# 4. Create the overwrite file g_cleaner.local with:
-#    /scripts/cron/g_cleaner.sh -o
+#    `chmod +x /scripts/cron/g_cleaner.sh`
+# 4. Create the local file 'g_cleaner.local' with:
+#    `/scripts/cron/g_cleaner.sh -o`
 # 5. Only modify the options in '/scripts/cron/g_cleaner.local' that you need to adapt.
 # 6. Test the script manually.
 # 7. To launch the script periodically, create the systemd timer with:
-#    /scripts/cron/g_cleaner.sh -t
+#    `/scripts/cron/g_cleaner.sh -t`
 #
 #
 # Systemd Journal:
-# To view the logs in systemd, use the command: 'journalctl -t g_cleaner.sh'
-# or 'journalctl -ft g_cleaner.sh' for continuous logging.
+# To view the logs in systemd, use the command: `journalctl -t g_cleaner.sh`
+# or `journalctl -ft g_cleaner.sh` for continuous logging.
 #
 #
 # Variables to be set by the user of this script
 #
-# Configure the parameters in the g_gleaner.local file in the same directory
-# where g_cleaner.sh is located.
-# To create the g_gleaner.local template file, run 'g_cleaner.sh -o' and edit the
-# parameters you want to adjust in the g_gleaner.local file.
+# Configure the parameters in the 'g_gleaner.local' file in the same directory
+# where 'g_cleaner.sh' is located.
+# To create the 'g_gleaner.local' template file, run `g_cleaner.sh -o´ and edit the
+# parameters you want to adjust in the 'g_gleaner.local' file.
 #
 # How long a Soft deleted message is retained:
 SOFTDELETE_RETENTION=70d20h
@@ -131,6 +133,10 @@ ON_CALENDAR="*-*-* 04:04:00"
 # DEBUG_MAIL="name1@domain.tld,name2@domain.tld"
 DEBUG_MAIL=""
 #
+# To send a report of anything that is logged to the journal.
+# REPORT_MAIL="name1@domain.tld,name2@domain.tld"
+REPORT_MAIL=""
+#
 #
 #
 # From here on, no code or variables need changing by the user of this script
@@ -141,11 +147,12 @@ sLOCAL_FILE=${sLOCAL_FILE%.*}.local
 #echo "Local Path: $sLOCAL_FILE"
 # shellcheck source=/dev/null
 [ -f "$sLOCAL_FILE" ] && . "$sLOCAL_FILE"
-
-
+#
+#
 # Variables for saving the parameters
 bSILENT=false
 bDEBUG=false
+#bDEBUG=true
 bLOGSD=false
 bHELP=false
 bHELP_ERROR=false
@@ -178,17 +185,28 @@ Help() {
     echo -e "${BLU}-d     Debug mode, show more informations.${NORM}"
     echo -e "${BLU}-x     Enables bash debug output.${NORM}"
     echo
-    echo -e "${CYA}Note: Edit this script to enable the cleaning options you require.${NORM}"
+    echo -e "${CYA}Note: Edit the overlay file $sLOCAL_FILE (not this script) to enable the cleaning options you require.${NORM}"
     echo
     exit "$1"
 }
+#
+#
+# Log to a temporary file as well if we want a report send via mail if
+# $REPORT_MAIL is defined - CRPB.
+REPORT_FILE=
+[ -n "$REPORT_MAIL" ] && REPORT_FILE=$(mktemp -t g_cleaner.report.XXXXX)
+#
 #
 #
 # Removes ANSI color escape codes and write to the systemd log
 logg() {
     # When running from an systemd service, all output is written to the systemd journal
     # Enable logging only for manual usage or cron tab usage
-    $bLOGSD || echo -e "$1" | sed -e 's/\x1b\[[0-9;]*m//g' | systemd-cat -t "$sSCRIPT_NAME" -p info;
+    $bLOGSD || echo -e "$1" | sed -r 's/\x1b\[[0-9;]*m//g' |
+        systemd-cat -t "$sSCRIPT_NAME" -p info;
+    if [ -n "$REPORT_FILE" ]; then
+        echo -e "$1" | sed -r 's/\x1B\[[0-9;]*m//g' >> "$REPORT_FILE"
+    fi
 }
 #
 #
@@ -374,6 +392,9 @@ CreateLocal() {
         echo "# Send debug emails."
         echo "#DEBUG_MAIL=\"\""
         echo "#"
+        echo "# Send report emails."
+        echo "#REPORT_MAIL=\"\""
+        echo "#"
         echo "# --- eof ---"
     } > "$sLOCAL_FILE"
     echo
@@ -448,6 +469,8 @@ while getopts "htUdsLox" option; do
    esac
 done
 #
+# Linux bin paths, change this if it can't be auto detected via which command
+
 # Sign on message
 $bSILENT || echo -e "${YEL}Run gromox-mbop to purge softdelete after ${CYA}$SOFTDELETE_RETENTION${YEL} and cleanup outdated data files.${NORM}"
 #
@@ -468,15 +491,18 @@ $bCREATE_TIMER && CreateTimer
 $bCREATE_LOCAL && CreateLocal
 #
 # Find and check the required commands
-#   The cleanup tool - "/usr/sbin/gromox-mbop"
+# The cleanup tool - "/usr/sbin/gromox-mbop"
 GROMOX_MBOP="$(which gromox-mbop 2>/dev/null)"
-#   The admin tool -   "usr/sbin/grommunio-admin"
+# The admin tool -   "usr/sbin/grommunio-admin"
 GROMMUNIO_ADMIN="$(which grommunio-admin 2>/dev/null)"
+# The mail tool
+MAIL="$(which mail 2>/dev/null)"
 #
-for sFILE in "$GROMOX_MBOP" "$GROMMUNIO_ADMIN";
+#
+for sFILE in "$GROMOX_MBOP" "$GROMMUNIO_ADMIN" "$MAIL";
 do
     if [ -z "$sFILE" ]; then
-        sMSG="${RED}Error: command ${YEL}gromox-mbop${RED} or ${YEL}grommunio-admin${RED} not found, aborting.${NORM}"
+        sMSG="${RED}Error: command ${YEL}gromox-mbop${RED} or ${YEL}grommunio-admin${RED} or ${YEL}mail${RED} not found, aborting.${NORM}"
         echo -e "$sMSG"
         logg "$sMSG"
         exit 1  # Terminate and indicate error
@@ -486,7 +512,7 @@ done
 # Get current weekday number (0=Sunday, 6=Saturday)
 iCURRENT_DAY=$(date +%w)
 #
-sMSG="Configurable parameters:"; logg "$sMSG"; $bSILENT || echo -e "$sMSG"
+sMSG="g_cleaner.sh configurable parameters:"; logg "$sMSG"; $bSILENT || echo -e "$sMSG"
 sMSG=" "; logg "$sMSG"; $bSILENT || echo -e "$sMSG"
 sMSG="SOFTDELETE_RETENTION : $SOFTDELETE_RETENTION"; logg "$sMSG"; $bSILENT || echo -e "$sMSG"
 sMSG="TRASHBIN_RETENTION ..: $TRASHBIN_RETENTION"; logg "$sMSG"; $bSILENT || echo -e "$sMSG"
@@ -501,10 +527,25 @@ sMSG="DOM_VACU_DOW ........: $DOM_VACU_DOW"; logg "$sMSG"; $bSILENT || echo -e "
 sMSG="IGNORE_MBX ..........: $IGNORE_MBX"; logg "$sMSG"; $bSILENT || echo -e "$sMSG"
 sMSG="WARNING_SEC .........: $WARNING_SEC"; logg "$sMSG"; $bSILENT || echo -e "$sMSG"
 sMSG="DEBUG_MAIL ..........: $DEBUG_MAIL"; logg "$sMSG"; $bSILENT || echo -e "$sMSG"
+sMSG="REPORT_MAIL .........: $REPORT_MAIL"; logg "$sMSG"; $bSILENT || echo -e "$sMSG"
 sMSG="iCURRENT_DAY ........: $iCURRENT_DAY"; logg "$sMSG"; $bSILENT || echo -e "$sMSG"
+if $bDEBUG; then
+    sMSG="GROMOX_MBOP .........: $GROMOX_MBOP"; logg "$sMSG"; $bSILENT || echo -e "$sMSG"
+    sMSG="GROMMUNIO_ADMIN .....: $GROMMUNIO_ADMIN"; logg "$sMSG"; $bSILENT || echo -e "$sMSG"
+    sMSG="MAIL ................: $MAIL"; logg "$sMSG"; $bSILENT || echo -e "$sMSG"
+fi
+# Check for an active gromox-cleaner.timer
+if systemctl is-enabled --quiet gromox-cleaner.timer; then
+    sMSG=" "; logg "$sMSG"; echo -e "$sMSG"
+    sMSG="${RED}Warning: gromox-cleaner.timer is enabled!${NORM}"; logg "$sMSG"; echo -e "$sMSG"
+    sMSG="This script (g_cleaner.sh) has a significantly broader range of functions than gromox-cleaner."; logg "$sMSG"; echo -e "$sMSG"
+    sMSG="Having two cleaner scripts usually causes problems. Please consider disabling gromox-cleaner"; logg "$sMSG"; echo -e "$sMSG"
+    sMSG="so that only this cleaner script, with its broader range of functions, runs."; logg "$sMSG"; echo -e "$sMSG"
+    sMSG="To disable gromox-cleaner, use: ${YEL}'systemctl --now disable gromox-cleaner.timer'.${NORM}"; logg "$sMSG"; echo -e "$sMSG"
+fi
+#
 sMSG=" "; logg "$sMSG"; $bSILENT || echo -e "$sMSG"
 #
-
 #
 # === The working code of this script
 #
@@ -588,7 +629,7 @@ if $MAIL_OUTBOX; then
         PrintWarning "$iWARNING_SECONDS" "${mailbox}"
         # Wait 1 seconds to get the elements in Softdelete.
         sleep 1
-        # Purge Softdelete for Outbox
+        # Purge softdelete for outbox
         sOUTPUT=$($GROMOX_MBOP -u "${mailbox}" purge-softdelete -r -t 0 OUTBOX  2>&1)
         #sOUTPUT="        $sOUTPUT"
         sOUTPUT=$(printf '%s\n' "$sOUTPUT" | sed 's/^/        /')
@@ -703,6 +744,7 @@ if $MAIL_DATA; then
         iWARNING_SECONDS=$(date +"%s")
         sOUTPUT=$($GROMOX_MBOP -u "${mailbox}" purge-datafiles 2>&1)
         PrintRT iWARNING_SECONDS
+        logg "$sOUTPUT"
         if [[ $sOUTPUT -ge 5 ]]; then
             #sOUTPUT="        $sOUTPUT"
             sOUTPUT=$(printf '%s\n' "$sOUTPUT" | sed 's/^/        /')
@@ -718,7 +760,7 @@ fi
 #if [[ " $MAIL_VACU_DOW " =~ [[:space:]]${iCURRENT_DAY}[[:space:]] ]]; then
 if [[ ${iCURRENT_DAY} =~ ($MAIL_VACU_DOW) ]]; then
     # Mail for debug purpose only
-    [ -n "$DEBUG_MAIL" ] && echo "${sSCRIPT_NAME} - MAIL_VACU_DOW run at $(date +%Y.%m.%d-%H:%M:%S)" | /usr/bin/mail -s "${sSCRIPT_NAME} - \$MAIL_VACU_DOW: ${MAIL_VACU_DOW}=${iCURRENT_DAY} run at $(date +%Y.%m.%d-%H:%M:%S), $(hostname)" "$DEBUG_MAIL"
+    [ -n "$DEBUG_MAIL" ] && echo "${sSCRIPT_NAME} - MAIL_VACU_DOW run at $(date +%Y.%m.%d-%H:%M:%S)" | $MAIL -s "${sSCRIPT_NAME} - \$MAIL_VACU_DOW: ${MAIL_VACU_DOW}=${iCURRENT_DAY} run at $(date +%Y.%m.%d-%H:%M:%S), $(hostname)" "$DEBUG_MAIL"
     $bSILENT || echo -e "\n${YEL}Vacuum the user mailbox database${NORM}, starting: $(date +%Y.%m.%d-%H:%M:%S)"
     iCOUNT=0
     iSKIPPED=0
@@ -774,6 +816,7 @@ for mailbox in $mailboxes; do
     sOUTPUT=$($GROMOX_MBOP -u "${mailbox}" recalc-sizes 2>&1)
     PrintRT iWARNING_SECONDS
     sOUTPUT=$(printf '%s\n' "$sOUTPUT" | sed 's/^/        /')
+    logg "$sOUTPUT"
     $bSILENT || echo -e "$sOUTPUT"
     PrintWarning "$iWARNING_SECONDS" "${mailbox}"
 done
@@ -813,7 +856,7 @@ fi
 #if [[ " $DOM_VACU_DOW " =~ [[:space:]]${iCURRENT_DAY}[[:space:]] ]]; then
 if [[ ${iCURRENT_DAY} =~ ($DOM_VACU_DOW) ]]; then
     # Mail for debug purpose only
-    [ -n "$DEBUG_MAIL" ] && echo "${sSCRIPT_NAME} - DOM_VACU_DOW run at $(date +%Y.%m.%d-%H:%M:%S)" | /usr/bin/mail -s "${sSCRIPT_NAME} - \$DOM_VACU_DOW: ${DOM_VACU_DOW}=${iCURRENT_DAY} run at $(date +%Y.%m.%d-%H:%M:%S), $(hostname)" "$DEBUG_MAIL"
+    [ -n "$DEBUG_MAIL" ] && echo "${sSCRIPT_NAME} - DOM_VACU_DOW run at $(date +%Y.%m.%d-%H:%M:%S)" | $MAIL -s "${sSCRIPT_NAME} - \$DOM_VACU_DOW: ${DOM_VACU_DOW}=${iCURRENT_DAY} run at $(date +%Y.%m.%d-%H:%M:%S), $(hostname)" "$DEBUG_MAIL"
     $bSILENT || echo -e "\n${YEL}Vacuum the domain databases${NORM}"
     iCOUNT=0
     iSTART_SECONDS=$(date +"%s")
@@ -845,4 +888,21 @@ fi
 sMSG="${CYA}Script run time:${NORM} $(date -u -d @${SECONDS} +%H:%M:%S).\n"
 logg "$sMSG"
 $bSILENT || echo -e "$sMSG"
+#
+# Send a report if enabled
+sMSG="Send a report if enabled: \$REPORT_MAIL: $REPORT_MAIL, \$REPORT_FILE: $REPORT_FILE"
+$bDEBUG && logg "$sMSG" && echo -e "$sMSG"
+if [ -n "$REPORT_MAIL" ] && [ -f "$REPORT_FILE" ]; then
+    sMSG=$($MAIL -s "${sSCRIPT_NAME} ran at $(date +%Y.%m.%d-%H:%M:%S), parameter $*, $(hostname)" "$REPORT_MAIL" < "$REPORT_FILE")
+    if $bDEBUG; then
+        logg "Output from mail command: $sMSG"
+        echo -e "Output from mail command: $sMSG"
+        cp -av "$REPORT_FILE" "/tmp/g_cleaner_output.txt"
+        sMSG="${RED}Examine the file /tmp/g_cleaner_output.txt and delete it when done!${NORM}"
+        logg "$sMSG"
+        echo -e "$sMSG"
+    fi
+    rm -f "$REPORT_FILE"
+fi
+#
 # --- eof ---

@@ -7,7 +7,8 @@ recover_svcs() {
 trap "recover_svcs" ERR
 SNAPCONF="gromox"
 #OPTS
-BDIR="$(awk '/grom.*nfs/ {print $2}' /etc/fstab)"
+#BDIR="$(awk '/grom.*nfs/ {print $2}' /etc/fstab)"
+BDIR="$(awk '/^\s+?#/{next} /grom.*nfs/ {print $2}' /etc/fstab)"
 #BDIR="/mnt/zpool/dataset/dataset"
 #SIMPLE OR-PATTERN ON ETC-FOLDERS - separate with "\|"
 ETCFLDS="grom\|postfix"

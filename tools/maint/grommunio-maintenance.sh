@@ -2,8 +2,8 @@
 
 # Load function library
 # shellcheck disable=SC1091
-. /usr/local/bin/grommunio-functions.sh || true
-. /root/scripts/tools/maint/grommunio-functions.sh || true
+#. /usr/local/bin/grommunio-functions.sh || true
+#. /root/scripts/tools/maint/grommunio-functions.sh || true
 #
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 if [ -f "$SCRIPT_DIR"/grommunio-functions.sh ]; then
@@ -15,7 +15,6 @@ fi
 
 # Check for the existance of a sources function.
 [ "$(type -t grom_users)" = 'function' ] || return 1
-
 
 ### Retrieve data ###
 
@@ -105,10 +104,10 @@ fi
 #grom_backup_objects all ~/backup all
 #
 # Detect some magic place
-BACKUPROOT=$(awk '/^\s+?#/{next} /grom.*nfs/ {print $2}' /etc/fstab)
-BACKUPPATH="$BACKUPROOT"/grommunio-maintenance/grom_backup_objects_all
-mkdir -p "$BACKUPPATH" || exit 1
-grom_backup_objects all "$BACKUPPATH" all
+# BACKUPROOT=$(awk '/^\s+?#/{next} /grom.*nfs/ {print $2}' /etc/fstab)
+# BACKUPPATH="$BACKUPROOT"/grommunio-maintenance/grom_backup_objects_all
+# mkdir -p "$BACKUPPATH" || exit 1
+# grom_backup_objects all "$BACKUPPATH" all
 
 # Example 2: Backup all calendar and contact objects for all domains
 #grom_backup_objects all ~/backup CALENDAR

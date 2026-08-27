@@ -2,17 +2,16 @@
 
 # Load function library
 # shellcheck disable=SC1091
-. /usr/local/bin/grommunio-functions.sh || true
-. /root/scripts/tools/maint/grommunio-functions.sh || true
+#. /usr/local/bin/grommunio-functions.sh || true
+#. /root/scripts/tools/maint/grommunio-functions.sh || true
 #
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 if [ -f "$SCRIPT_DIR"/grommunio-functions.sh ]; then
-  . "$SCRIPT_DIR"/grommunio-functions.sh
+	. "$SCRIPT_DIR"/grommunio-functions.sh
 else
-  echo "Could not find grommunio-functions.sh!" >&2
-  exit 1
+	echo "Could not find grommunio-functions.sh!" >&2
+	exit 1
 fi
-
 
 # Check for the existance of a sources function.
 [ "$(type -t grom_users)" = 'function' ] || return 1
@@ -94,6 +93,11 @@ fi
 # Example 3: Backup all objects for domain abc.com
 #grom_backup_messages abc.com /root/backup all
 
+# Detect some magic place
+BACKUPROOT=$(awk '/^\s+?#/{next} /grom.*nfs/ {print $2}' /etc/fstab)
+BACKUPPATH="$BACKUPROOT"/grommunio-maintenance/grom_backup_objects_all
+mkdir -p "$BACKUPPATH" || exit 1
+grom_backup_objects all "$BACKUPPATH" all
 
 
 ### Learn ham/spam ###

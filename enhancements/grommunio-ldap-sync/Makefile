@@ -12,4 +12,5 @@ uninstall:
 		grommunio-ldap-sync.service grommunio-ldap-sync.timer
 	rm -vf /etc/systemd/system/grommunio-ldap-sync.service
 	rm -vf /etc/systemd/system/grommunio-ldap-sync.timer
-	systemcel daemon-reload
+	systemctl daemon-reload
+	rm -vf /usr/local/sbin/grommunio-ldap-sync

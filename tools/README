@@ -233,7 +233,26 @@ for MBX in $(gromox-mbop foreach.mb.here echo-username); do
 done )
 
 
-# BULK INDEXING
+###############################################################################
+# BULK INDEXING / THERE WAS SOMETHING ICKY WITH THAT...
+###############################################################################
 systemctl stop grommunio-index.timer
 mbxs=( $(gromox-mbop foreach.mb.here echo-username) )
 parallel --jobs $(nproc) "gromox-mbop -u '{1}' echo-maildir | while read -r maildir; do echo grommunio-index -c -v \$maildir 2>'{1}'.err | tee '{1}'.log ; done " ::: ${mbxs[@]} ::: {1} ; systemctl start grommunio-index.timer ;
+
+###############################################################################
+# UNCOMPRESS MAILBOXES
+###############################################################################
+# Disable compression - exmdb_provider(4gx)
+sed -i.bak '/^exmdb_file_compression/d ; a\exmdb-file_compression=no' \
+	/etc/gromox/exmdb_provider.cfg
+# Now you need to restart at least http(8gx) but best to restart all of them.
+# - Stop accessing services like, postfix, nginx, gromox-imap+pop3
+# - Take backups with the help of gromox-export as shown before.
+# - Delete or at least purge the whole mailbox (also shown before)
+# - Import the just created backup again with gromox-import (above :>)
+# Thats it.
+# TIP: Compare the output of gromox-mbsize before/after to see the difference.
+gromox-mbsize -u you@there.tld | grep -e User: -e MAPI
+# WHY?!!!
+# If you don't know why than you can forget about the whole thing. 
