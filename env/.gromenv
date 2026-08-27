@@ -14,6 +14,11 @@ function green { printf "${GREEN}$@${NC}\n"; }
 function yellow { printf "${YELLOW}$@${NC}\n"; }
 function blue { printf "${BLUE}$@${NC}\n"; }
 
+# BATCAT
+if command -vp bat >/dev/null; then
+  alias cat='bat -pp'
+fi
+
 # Show Disk-Usage of all BTRFS-Volumes
 du_btrfs() { mount -t btrfs | awk '!/snapshots/ {print $3}' | xargs -n 1 du -hsx | sort -h; }
 usage_btrfs() {
@@ -56,7 +61,7 @@ if ! command -v register-python-argcomplete &>/dev/null; then
 else
   eval "$(register-python-argcomplete grommunio-admin --complete)"
 fi
-grom_svcs="$(systemctl --output json list-units | jq -r '.[]|select(.unit|test("(^grom.*|nginx|.*fpm).service")).unit')"
+grom_svcs="$(systemctl --state=loaded --output json --all list-units | jq -r '.[]|select(.unit|test("(^grom.*|nginx|.*fpm).(service|timer|socket)")).unit')"
 export grom_svcs
 # Grommunio Konsolen Helferlein
 _grom_query_maildir() {
@@ -486,13 +491,11 @@ exmdb_set_perm() {
     folder="${3}"
     shift 3
     acls="${@}"
-    grommunio-admin exmdb "${owner}" folder grant "${folder}" "${user}"
-    for folder in ${_exmdb_std_folders}; do
-      #hmmmm ... worked different $someday
-      for acl in $acls; do
-        grommunio-admin exmdb "${owner}" folder grant "${folder}" "${user}" "${acl}"
-      done
-    done
+    #grommunio-admin exmdb "${owner}" folder grant "${folder}" "${user}"
+    #hmmmm ... worked different $someday
+    #for acl in $acls; do
+    grommunio-admin exmdb "${owner}" folder grant "${folder}" "${user}" ${acls}
+    #done
   fi
 }
 # completion
@@ -593,7 +596,10 @@ grom_get_devices () {
       MBXS=$(gromox-mbop foreach.mb echo-username);
     fi;
     BULK="$(printf "user devices %s list\n" $MBXS)";
-    ( echo "$BULK" | grommunio-admin shell -n 2> /dev/null | sed '/^$/d' | awk '{ if ($1=="user" && $2=="devices") { mailbox=$3 } else if ($1=="ID" && $2=="Device") {next} else if ($1=="(No" && $2=="devices)") {next} else { printf "%s\t%s\n", mailbox, $0 } }' | sort | column -t ) | grep -e '' -e 'Outlook.*/'
+    #pritnf 'ID\tDevice\tAgent\tVersion\tLast connect\tStatus'
+    #( echo "$BULK" | grommunio-admin shell -n 2> /dev/null | sed '/^$/d' | awk '{ if ($1=="user" && $2=="devices") { mailbox=$3 } else if ($1=="ID" && $2=="Device") {next} else if ($1=="(No" && $2=="devices)") {next} else { printf "%s\t%s\n", mailbox, $0 } }' | 
+	  #sort | column --separator '\t' --table --table-columns USER,ID,DEVICE,AGENT,VERSION,LASTSEEN,STATUS ) | grep -e '' -e 'Outlook.*/'
+    ( echo "$BULK" | grommunio-admin shell -n 2> /dev/null | sed '/^$/d' | awk '{ if ($1=="user" && $2=="devices") { mailbox=$3 } else if ($1=="ID" && $2=="Device") {next} else if ($1=="(No" && $2=="devices)") {next} else { printf "%s\t%s\n", mailbox, $0 } }' | sort ) | grep -e '' -e 'Outlook.*/'
   )
 }
 complete -F _comp_grom_users grom_get_devices
@@ -616,3 +622,17 @@ grom_get_mbsize_report () {
   )
 }
 complete -F _comp_grom_users grom_get_mbsize_report
+
+grom_test_maildelivery() {
+  MBX="${1:?}";
+  if ! rpm -q hunspell >/dev/null; then
+    zypper in -y hunspell;
+  fi
+  while true; do
+    echo "Sending Mail to $MBX";
+    /root/scripts/tools/genmails 1 | sed '/To:/ s/user@example.com/'"$MBX"'/' | tee >(cat >&2) | gromox-mbox2mt - | gromox-mt2exm -D -u "$MBX";
+    echo "Sleep 10";
+    sleep 10;
+  done
+}
+
