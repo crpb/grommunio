@@ -593,7 +593,7 @@ grom_get_devices () {
     if [ "$#" -eq 1 ]; then
       MBXS="$1";
     else
-      MBXS=$(gromox-mbop foreach.mb echo-username);
+      MBXS=$(gromox-mbop foreach.here.mb echo-username);
     fi;
     BULK="$(printf "user devices %s list\n" $MBXS)";
     #pritnf 'ID\tDevice\tAgent\tVersion\tLast connect\tStatus'
@@ -610,7 +610,7 @@ grom_get_mbsize_report () {
     if [ "$#" -eq 1 ]; then
       MBXS="$1";
     else
-      MBXS="$(gromox-mbop foreach.mb echo-username)"
+      MBXS="$(gromox-mbop foreach.here.mb echo-username)"
     fi;
     for MBX in $MBXS; do
       maildir=$(gromox-mbop -u "$MBX" echo-maildir)

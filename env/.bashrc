@@ -1,14 +1,19 @@
 HISTCONTROL=ignoreboth
-HISTSIZE=2000
-HISTFILESIZE=4000
+HISTSIZE=5000
+HISTFILESIZE=10000
 # set a fancy prompt (non-color, unless we know we "want" color)
 case "$TERM" in
     xterm-color|*-256color) color_prompt=yes;;
 esac
+
+if [ -f /etc/bash_completion ]; then
+  . /etc/bash_completion
+fi
+
 # uncomment for a colored prompt, if the terminal has the capability; turned
 # off by default to not distract the user: the focus in a terminal window
 # should be on the output of commands, not on the prompt
-force_color_prompt=yes
+export force_color_prompt=yes
 if [ -n "$force_color_prompt" ]; then
     if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
         # We have color support; assume it's compliant with Ecma-48
@@ -32,3 +37,5 @@ for file in ~/.local/bash-completion/*; do test -f "$file" && . "$file"; done
 export SYSTEMD_PAGER=
 export EDITOR=/usr/bin/vim
 
+# don't loose history with multiple sessions
+shopt -s histappend
