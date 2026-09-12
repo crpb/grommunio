@@ -54,10 +54,11 @@ jq --arg check "$CHECK" ' . [] |
       ( pick  
         ( .storagequotalimit, .prohibitsendquota, .prohibitreceivequota, .messagesizeextended ) 
       ) ) 
-  | ( "P \"" + $check + " " + .username + "\" size=" + (.messagesizeextended|tostring) + ";" + 
-  (((.prohibitsendquota//0) * 1024)|tostring) + ";" + 
-  (((.prohibitreceivequota//0) * 1024)|tostring) + ";" + 
-  (((.storagequotalimit//0) * 1024)|tostring)  ) 
+      | ( "P \"" + $check + " " + .username + "\" size=" + 
+      (( .messagesizeextended / 1024 / 1024 | floor ) | tostring ) + ";" + 
+      ((( .prohibitsendquota // 0 ) / 1024| floor ) | tostring ) + ";" + 
+      ((( .prohibitreceivequota // 0 ) / 1024 | floor ) | tostring ) + ";" + 
+      ((( .storagequotalimit // 0 ) / 1024 | floor ) | tostring )  ) 
   ' -r "$JSON"
 
 
