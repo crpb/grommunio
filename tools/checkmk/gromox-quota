@@ -1,5 +1,5 @@
 #!/bin/sh
-
+# vim: ts=2 sts=2 sw=2 et
 # REF: https://community.grommunio.com/d/2671-checkmk-script-fur-quotenuberwachung
 
 CHECK="EXMDB"
@@ -50,6 +50,7 @@ trap 'rm $JSON' INT QUIT TERM EXIT
 
 # jq ' . [] | {username: .mbx}  + ( .exmdb| ( pick  ( .storagequotalimit, .prohibitsendquota, .prohibitreceivequota, .messagesizeextended ) ) ) | ( "MBX:" + .username + "=" + (.messagesizeextended|tostring) + ";" + (((.prohibitreceivequota//0) * 1024)|tostring) + ";;" + (((.prohibitsendquota//0) * 1024)|tostring)  ) ' -r
 # MBX:cb@clownflare.de=1057890842;1887436800;;1782579200
+
 jq --arg check "$CHECK" ' . [] | 
   {username: .mbx}  + 
     ( .exmdb| 
@@ -66,20 +67,3 @@ jq --arg check "$CHECK" ' . [] |
           (( .messagesizeextended / 1024 / 1024 | floor ) | tostring ) + "MB"
         ) 
   ' -r "$JSON"
-
-
-## OLD
-# while IFS= read -r line; do
-#   if [[ $line != "admin" ]]; then
-#     user=$(grommunio-admin exmdb "$line" store get messagesizeextended prohibitsendquota prohibitreceivequota --format json-object)
-#     messagesizeextended=$(echo "$user" | jq --raw-output .messagesizeextended.[] | numfmt --to-unit=M)
-#     storagequotalimit=$(echo "$user" | jq --raw-output .storagequotalimit.[])
-#     storagequotalimit=$(echo $(( storagequotalimit * 1024 )) | numfmt --to-unit=M)
-#     prohibitsendquota=$(echo "$user" | jq --raw-output .prohibitsendquota.[])
-#     prohibitsendquota=$(echo $(( prohibitsendquota * 1024 )) | numfmt --to-unit=M)
-#     prohibitreceivequota=$(echo "$user" | jq --raw-output .prohibitreceivequota.[])
-#     prohibitreceivequota=$(echo $(( prohibitreceivequota * 1024 )) | numfmt --to-unit=M)
-# 
-#     echo "P \"$CHECK $line\" messagesizeextended=$messagesizeextended;$prohibitsendquota;$prohibitreceivequota;0;$storagequotalimit Füllstand: $messagesizeextended M - SendLimit: $prohibitsendquota M - ReceiveLimit: $prohibitreceivequota M - Max: $storagequotalimit M"
-#   fi
-# done <<< "$user_list"
