@@ -1,0 +1,78 @@
+#!/bin/sh
+
+CHECK="EXMDB"
+active_users=$(gromox-mbop foreach.here.mb.active echo-username)
+# UMLAUTE CAN MAKE THINGS BREAK SO FOR NOW JUST QUERY DATA THAT ONLY HAS NUMBERS!
+#STUFF="$(grommunio-admin taginfo '*' |grep -v 'string8' | awk '{gsub(/,/,"", $3); printf "%s ", tolower($3)}')";
+STUFF="associatedcontentcount assocmessagesizeextended contentcount creationtime deletedassocmsgcount deletedmsgcount displaytypeex messagesizeextended normalmessagesizeextended outofofficestate prohibitreceivequota prohibitsendquota storagequotalimit storestate"
+
+# BULK QUERY EVERYTHING WE CAN GET
+JSON=$(mktemp -t exmdb.XXXXX)
+trap 'rm $JSON' INT QUIT TERM EXIT
+(
+  for user in $active_users; do
+    printf "exmdb %s store get %s --format=json-kv\n" "$user" "$STUFF"
+  done | grommunio-admin shell -n  2>/dev/null | sed '/^$/d' | awk '{
+    if ($1=="exmdb") { mailbox=$2 }
+    else if ($1=="tag" && $2=="value") {next}
+    else { printf "%s\t%s\n", mailbox, $0 }
+    }' | while read -r username json; do
+    #}' | while IFS="$(printf '\t')" read -r username json; do
+## DIFFERENT OUTPUT FORMAT
+##  jq --null-input --arg username "$username" \
+##    --argjson dump "$json" '{$username: $dump}'
+  jq --null-input --arg username "$username" \
+    --argjson dump "$json" '{mbx: $username, exmdb: $dump}'
+  done
+) | jq --slurp > "$JSON" || exit 1
+# DEBUG?
+# jq < "$JSON"
+
+# GET WHAT WE NEED
+#
+# jq ' . [] | {username: .mbx}  + ( .exmdb| ( pick  ( .storagequotalimit, .prohibitsendquota, .prohibitreceivequota, .messagesizeextended ) ) ) '
+# {
+#  "username": "cb@clownflare.de",
+#  "storagequotalimit": 1048576,
+#  "prohibitsendquota": 2097152,
+#  "prohibitreceivequota": 1536000,
+#  "messagesizeextended": 1057871001
+#}
+#
+# jq ' . [] | [ pick ( .mbx ) + ( .exmdb| ( pick  ( .storagequotalimit, .prohibitsendquota, .prohibitreceivequota, .messagesizeextended ) ) ) | to_entries[] | "\(.key)=\(.value)" ] | @tsv' -r
+# mbx=cb@clownflare.de	storagequotalimit=1048576	prohibitsendquota=2097152	prohibitreceivequota=1536000	messagesizeextended=1057871001
+
+# WE SHOULD BUILD A METRIC PER MAILBOX
+# https://docs.checkmk.com/latest/en/localchecks.html#metrics
+# metricname=value;warn;crit;min;max
+
+# jq ' . [] | {username: .mbx}  + ( .exmdb| ( pick  ( .storagequotalimit, .prohibitsendquota, .prohibitreceivequota, .messagesizeextended ) ) ) | ( "MBX:" + .username + "=" + (.messagesizeextended|tostring) + ";" + (((.prohibitreceivequota//0) * 1024)|tostring) + ";;" + (((.prohibitsendquota//0) * 1024)|tostring)  ) ' -r
+# MBX:cb@clownflare.de=1057890842;1887436800;;1782579200
+jq --arg check "$CHECK" ' . [] | 
+  {username: .mbx}  + 
+    ( .exmdb| 
+      ( pick  
+        ( .storagequotalimit, .prohibitsendquota, .prohibitreceivequota, .messagesizeextended ) 
+      ) ) 
+  | ( "P \"" + $check + " " + .username + "\" size=" + (.messagesizeextended|tostring) + ";" + 
+  (((.prohibitsendquota//0) * 1024)|tostring) + ";" + 
+  (((.prohibitreceivequota//0) * 1024)|tostring) + ";" + 
+  (((.storagequotalimit//0) * 1024)|tostring)  ) 
+  ' -r "$JSON"
+
+
+## OLD
+# while IFS= read -r line; do
+#   if [[ $line != "admin" ]]; then
+#     user=$(grommunio-admin exmdb "$line" store get messagesizeextended prohibitsendquota prohibitreceivequota --format json-object)
+#     messagesizeextended=$(echo "$user" | jq --raw-output .messagesizeextended.[] | numfmt --to-unit=M)
+#     storagequotalimit=$(echo "$user" | jq --raw-output .storagequotalimit.[])
+#     storagequotalimit=$(echo $(( storagequotalimit * 1024 )) | numfmt --to-unit=M)
+#     prohibitsendquota=$(echo "$user" | jq --raw-output .prohibitsendquota.[])
+#     prohibitsendquota=$(echo $(( prohibitsendquota * 1024 )) | numfmt --to-unit=M)
+#     prohibitreceivequota=$(echo "$user" | jq --raw-output .prohibitreceivequota.[])
+#     prohibitreceivequota=$(echo $(( prohibitreceivequota * 1024 )) | numfmt --to-unit=M)
+# 
+#     echo "P \"$CHECK $line\" messagesizeextended=$messagesizeextended;$prohibitsendquota;$prohibitreceivequota;0;$storagequotalimit Füllstand: $messagesizeextended M - SendLimit: $prohibitsendquota M - ReceiveLimit: $prohibitreceivequota M - Max: $storagequotalimit M"
+#   fi
+# done <<< "$user_list"
