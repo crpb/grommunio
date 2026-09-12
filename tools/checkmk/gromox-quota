@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# REF: https://community.grommunio.com/d/2671-checkmk-script-fur-quotenuberwachung
+
 CHECK="EXMDB"
 active_users=$(gromox-mbop foreach.here.mb.active echo-username)
 # UMLAUTE CAN MAKE THINGS BREAK SO FOR NOW JUST QUERY DATA THAT ONLY HAS NUMBERS!
