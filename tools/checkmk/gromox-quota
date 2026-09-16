@@ -65,7 +65,10 @@ jq --arg check "$CHECK" ' . [] |
           ( if .prohibitsendquota then ((( .prohibitsendquota // 0 ) / 1024| floor ) | tostring ) else "" end ) + ";" + 
           ( if .prohibitreceivequota then ((( .prohibitreceivequota // 0 ) / 1024 | floor ) | tostring ) else "" end ) + ";" +
           "0;" +
-          ( if .storagequotalimit then (( .storagequotalimit // 0 ) / 1024 | floor ) | tostring else "" end ) + " Size: " +
-          (( .messagesizeextended / 1024 / 1024 | floor ) | tostring ) + "MB"
+          ( if .storagequotalimit then (( .storagequotalimit // 0 ) / 1024 | floor ) | tostring else "" end ) +
+          " Store-Size:" +  (( .messagesizeextended / 1024 / 1024 | floor ) | tostring ) + "MB" +
+          ( if .prohibitsendquota then " Send-Quota:" + ((( .prohibitsendquota // 0 ) / 1024| floor ) | tostring ) + "MB" else "" end ) +
+          ( if .prohibitreceivequota then " Receive-Quota:" + ((( .prohibitreceivequota // 0 ) / 1024| floor ) | tostring ) + "MB" else "" end ) +
+          ( if .storagequotalimit then " Storage-Quota:" + ((( .storagequotalimit // 0 ) / 1024| floor ) | tostring ) + "MB" else "" end )
         ) 
   ' -r "$JSON"
