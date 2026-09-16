@@ -8,3 +8,7 @@ To limit it's execution to e.g. every 15 minutes place it in the subfolder "900"
 
 ## Configuration
 A default configuration will be automatically created in `/etc/checkmk/gromox-queue.cfg` where you can set a service name and thresholds.
+
+# gromox-quota
+
+Local check with metrics for each local and active mailbox with storesize, send-, receive and hard quota.
