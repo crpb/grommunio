@@ -55,10 +55,7 @@ trap 'rm $JSON' INT QUIT TERM EXIT
 
 jq --arg check "$CHECK" ' . [] | 
   {username: .mbx}  + 
-    ( .exmdb| 
-      ( pick  
-        ( .storagequotalimit, .prohibitsendquota, .prohibitreceivequota, .messagesizeextended ) 
-      ) ) 
+    ( .exmdb| . ) 
       | ( 
           "P \"" + $check + " " + .username + "\" size=" + 
           (( .messagesizeextended / 1024 / 1024 | floor ) | tostring ) + ";" + 
